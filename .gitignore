@@ -1,0 +1,36 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+build/
+dist/
+out/
+__pycache__/
+*.pyc
+
+# 3D printing slicer profiles (keep templates, ignore generated)
+*.gcode
+*.3mf
+
+# RL training outputs
+runs/
+checkpoints/
+*.pt
+*.onnx
+
+# Environment files
+.env
+.venv/
+venv/
+
+# Temporary files
+*.tmp
+*.log
