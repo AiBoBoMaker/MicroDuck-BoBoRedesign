@@ -8,10 +8,18 @@
 
 ## 设计文件
 
-| 文件 | 说明 |
+| 文件/目录 | 说明 |
 |------|------|
 | `MicroDuck-BoBo-IMU-2026-09-22.epro2` | IMU 模块初始版本，嘉立创 EDA 专业版工程文件 |
 | `MicroDuck-BoBo-imu_to_dxl-2026-10-15.epro2` | IMU 转 Dynamixel 接口版本（最新），嘉立创 EDA 专业版工程文件 |
+| `firmware/` | IMU 模块固件目录，含可直接烧录的 `.bin` 文件及完整固件包 |
+
+### 固件文件
+
+| 文件 | 说明 |
+|------|------|
+| `imu_to_feetech_ReVA_FT6_SYNC15_UART_IRQ_v1.bin` | IMU 转飞特协议固件（Rev.A，FT6 舵机，UART IRQ 模式，v1） |
+| `Microduck-Robotd-FT6-R17.tar.gz` | 完整固件包（含飞特 FT6 舵机适配，R17 版本） |
 
 ## 打开方式
 

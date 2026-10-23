@@ -114,6 +114,22 @@ Join the conversation, share your builds, and connect with fellow makers:
 
 ---
 
+## Disclaimer
+
+> Shared with the community, with respect for the original creators.
+
+This is a personal learning and development project based on the official [Pollen Robotics](https://pollen-robotics.com/) MicroDuck 0.15.1. It is not an official release. Except for clearly attributed official and third-party code, models, and assets, all independently added firmware adaptations, controller boards, tools, documentation, and author-trained models are original work by the project author (with AI-assisted programming).
+
+The original portions authored by this project are available for personal learning, research, and non-commercial use only. Commercial use requires prior written authorization from the author — including use in commercial products, paid services, or distribution with sold units. The official Apache-2.0, third-party MIT, official geometric models, and other respective licenses remain in effect and are never superseded by this project's personal terms.
+
+**Full scope: per-item licenses · personal non-commercial license · third-party attributions**
+
+---
+
+This project started from a single board, a little duck, and countless debugging sessions. I'm not a professional team, and parts of the code were written with AI assistance. I hope this helps you avoid detours and see your own little duck come to life sooner. Feel free to Star ⭐, share feedback, and join the conversation.
+
+---
+
 <p align="center">
   Made with passion by the <a href="http://opc.bobomaker.com">BoBoMaker</a> community
 </p>
