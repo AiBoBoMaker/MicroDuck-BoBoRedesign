@@ -10,7 +10,8 @@
 
 | 文件 | 说明 |
 |------|------|
-| `MicroDuck-BoBo-IMU-2026-09-22.epro2` | 嘉立创 EDA 专业版工程文件 |
+| `MicroDuck-BoBo-IMU-2026-09-22.epro2` | IMU 模块初始版本，嘉立创 EDA 专业版工程文件 |
+| `MicroDuck-BoBo-imu_to_dxl-2026-10-15.epro2` | IMU 转 Dynamixel 接口版本（最新），嘉立创 EDA 专业版工程文件 |
 
 ## 打开方式
 
@@ -32,4 +33,5 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v20261015 | 2026-10-15 | 新增 IMU 转 Dynamixel 接口版本（imu_to_dxl），优化通信协议 |
 | v20260922 | 2026-09-22 | 初始版本，实现六轴 IMU 模拟为 Dynamixel 2.0 设备 |

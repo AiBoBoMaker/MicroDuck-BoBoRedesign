@@ -7,7 +7,8 @@
 <p align="center">
   <a href="README_CN.md">中文文档</a> |
   <a href="http://opc.bobomaker.com">BoBoMaker Official</a> |
-  <a href="https://github.com/pollen-robotics/microduck">Original Project</a>
+  <a href="https://github.com/pollen-robotics/microduck">Original Project</a> |
+  <a href="https://github.com/kissqy/Microduck-kissqy">Reference Project</a>
 </p>
 
 <p align="center">
@@ -21,6 +22,10 @@
 **MicroDuck BoBoRedesign** is an open-source community project that reimagines the [MicroDuck](https://github.com/pollen-robotics/microduck) — a tiny bipedal robot powered by reinforcement learning — for the **3D printing community**.
 
 The original MicroDuck, developed by [Pollen Robotics](https://pollen-robotics.com/microduck), uses injection-molded parts that are not ideal for 3D printing reproduction. This project takes on the challenge of **redesigning every component for FDM/SLA 3D printing**, while preserving the original appearance and enhancing structural integrity for printed replicas.
+
+This project is heavily inspired by and references [@kissqy](https://github.com/kissqy)'s [Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) project. Special thanks to kissqy for the code support! This version enables rapid replication of the MicroDuck Feetech servo variant, and future improvements will be built upon this foundation.
+
+> **Current Status:** The 3D-printed shell, HAT driver board, and IMU module have all been updated to the latest versions. Feel free to order PCBs and assemble with confidence.
 
 > **Our Mission:** To make the MicroDuck accessible to every maker, hobbyist, and researcher who owns a 3D printer — no injection molding required.
 
@@ -36,10 +41,10 @@ The original MicroDuck, developed by [Pollen Robotics](https://pollen-robotics.c
 
 ```
 MicroDuck-BoBoRedesign/
-├── 01-3DPrint/    # 3D-printable shell models (STL/STEP files, print profiles)
-├── 02-PCB/        # Custom PCB designs and schematics
-├── 03-Code/       # Firmware and control code
-├── 04-RL/         # Reinforcement learning training and policy files
+├── 01-3DPrint/    # 3D-printable shell models (STL files, XL330 & HD-1910 variants)
+├── 02-PCB/        # Custom PCB designs and schematics (IMU module, HAT driver board)
+├── 05-BOM/        # Bill of Materials and motherboard reference docs
+├── 06-tools/      # Debugging tools (servo debug tool, CH340 driver, etc.)
 ├── assets/        # Project assets (logo, images, etc.)
 └── README.md
 ```
@@ -48,10 +53,10 @@ MicroDuck-BoBoRedesign/
 
 | Folder | Contents |
 |--------|----------|
-| `01-3DPrint` | Redesigned 3D models optimized for FDM/SLA printing, including assembly guides and recommended print settings |
-| `02-PCB` | PCB layouts, schematics, and BOM (Bill of Materials) for the custom control board |
-| `03-Code` | Firmware source code, configuration files, and deployment scripts |
-| `04-RL` | RL training environments, policy configurations, and ONNX model exports |
+| `01-3DPrint` | Redesigned 3D models optimized for FDM/SLA printing, with two servo variants: `01-XL330-M288-T` (original Dynamixel) and `02-HD-1910-C001` (Feetech domestic servo) |
+| `02-PCB` | PCB layouts and schematics, including IMU module and HAT driver board designs |
+| `05-BOM` | Complete Bill of Materials and Radxa ZERO 3W motherboard reference documentation |
+| `06-tools` | Debugging tools collection, including Feetech servo debug tool and CH340 UART driver |
 
 ## Getting Started
 
@@ -75,7 +80,10 @@ MicroDuck-BoBoRedesign/
 
 This project is a **secondary development** based on the original [MicroDuck](https://github.com/pollen-robotics/microduck) project by [Pollen Robotics](https://pollen-robotics.com/). We deeply appreciate their pioneering work in open-source robotics.
 
+We also want to express our gratitude to [@kissqy](https://github.com/kissqy) for the [Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) project, which served as a key reference for this work. Thanks to kissqy's code support, this version enables rapid replication of the MicroDuck Feetech servo variant. Future improvements will continue to be built upon this foundation.
+
 - **Original Project:** [pollen-robotics/microduck](https://github.com/pollen-robotics/microduck)
+- **Reference Project:** [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy)
 - **RL Training Repo:** [pollen-robotics/microduck_rl](https://github.com/pollen-robotics/microduck_rl)
 
 ## License

@@ -7,7 +7,8 @@
 <p align="center">
   <a href="README.md">English</a> |
   <a href="http://opc.bobomaker.com">BoBoMaker 官网</a> |
-  <a href="https://github.com/pollen-robotics/microduck">原始项目</a>
+  <a href="https://github.com/pollen-robotics/microduck">原始项目</a> |
+  <a href="https://github.com/kissqy/Microduck-kissqy">参考项目</a>
 </p>
 
 <p align="center">
@@ -21,6 +22,10 @@
 **MicroDuck BoBoRedesign** 是一个开源社区项目，旨在将 [MicroDuck](https://github.com/pollen-robotics/microduck) —— 一款基于强化学习驱动的小型双足机器人 —— 重新设计为**完全适配 3D 打印**的版本。
 
 原始 MicroDuck 由 [Pollen Robotics](https://pollen-robotics.com/microduck) 开发，其外壳采用注塑工艺制造，对于 3D 打印复刻来说效果并不理想。本项目致力于**对所有零部件进行二次创作**，在保持原有外观基本一致的前提下，针对 FDM/SLA 3D 打印工艺进行美学优化与结构增强，使 3D 打印复刻版本具备更高的可用性和观赏性。
+
+本项目整体参考了 [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) 大佬的项目，感谢 kissqy 的代码支持！基于这个版本可以快速复刻 MicroDuck 飞特版本，今后会基于这个版本继续改进。
+
+> **当前状态：** 3D 打印外壳、HAT 驱动板和 IMU 模块均已更新至最新版本，大家可以放心打板贴片尝试。
 
 > **我们的使命：** 让每一位拥有 3D 打印机的创客、爱好者和研究者都能亲手打造属于自己的 MicroDuck —— 无需注塑模具。
 
@@ -36,10 +41,10 @@
 
 ```
 MicroDuck-BoBoRedesign/
-├── 01-3DPrint/    # 3D 打印外壳模型（STL/STEP 文件、打印配置）
-├── 02-PCB/        # 自定义 PCB 设计与原理图
-├── 03-Code/       # 固件与控制代码
-├── 04-RL/         # 强化学习训练与策略文件
+├── 01-3DPrint/    # 3D 打印外壳模型（STL 文件，含 XL330 和 HD-1910 两套方案）
+├── 02-PCB/        # 自定义 PCB 设计与原理图（IMU 模块、HAT 驱动板）
+├── 05-BOM/        # 物料清单（BOM）及主板资料整理
+├── 06-tools/      # 调试工具（舵机调试工具、CH340 驱动等）
 ├── assets/        # 项目资源（Logo、图片等）
 └── README_CN.md
 ```
@@ -48,10 +53,10 @@ MicroDuck-BoBoRedesign/
 
 | 目录 | 内容 |
 |------|------|
-| `01-3DPrint` | 针对 FDM/SLA 打印优化的重设计 3D 模型，含装配指南与推荐打印参数 |
-| `02-PCB` | 自定义控制板的 PCB 布局、原理图及 BOM（物料清单） |
-| `03-Code` | 固件源码、配置文件及部署脚本 |
-| `04-RL` | 强化学习训练环境、策略配置及 ONNX 模型导出文件 |
+| `01-3DPrint` | 针对 FDM/SLA 打印优化的重设计 3D 模型，含两套方案：`01-XL330-M288-T`（原装舵机版）和 `02-HD-1910-C001`（飞特国产舵机版） |
+| `02-PCB` | 自定义控制板的 PCB 布局、原理图，包含 IMU 模块和 HAT 驱动板设计 |
+| `05-BOM` | 完整物料清单（BOM）及 Radxa ZERO 3W 主板资料整理 |
+| `06-tools` | 调试工具合集，含飞特舵机调试工具、CH340 串口驱动等 |
 
 ## 快速开始
 
@@ -75,7 +80,10 @@ MicroDuck-BoBoRedesign/
 
 本项目是基于 [Pollen Robotics](https://pollen-robotics.com/) 的 [MicroDuck](https://github.com/pollen-robotics/microduck) 项目进行的**二次开发**。我们深深感谢他们在开源机器人领域的开创性工作。
 
+同时，本项目整体参考了 [kissqy](https://github.com/kissqy) 大佬的 [Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) 项目，感谢 kissqy 的代码支持，使得本版本可以快速复刻 MicroDuck 飞特版本。今后会基于这个版本继续改进。
+
 - **原始项目：** [pollen-robotics/microduck](https://github.com/pollen-robotics/microduck)
+- **参考项目：** [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy)
 - **RL 训练仓库：** [pollen-robotics/microduck_rl](https://github.com/pollen-robotics/microduck_rl)
 
 ## 开源协议
