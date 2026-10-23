@@ -6,6 +6,8 @@
 
 本目录包含 MicroDuck BoBoRedesign 项目的 **IMU（惯性测量单元）模块** PCB 设计文件。该模块将六轴 IMU 传感器模拟为一个 **Dynamixel 2.0 协议设备**，可直接接入 MicroDuck 的舵机总线，无需额外的通信接口。
 
+> **版本说明：** 当前最新版本（imu_to_dxl）参考自 [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) 项目，感谢 kissqy 的硬件及固件设计支持。
+
 ## 设计文件
 
 | 文件/目录 | 说明 |

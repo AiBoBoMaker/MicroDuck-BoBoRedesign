@@ -6,6 +6,8 @@
 
 本目录包含 MicroDuck BoBoRedesign 项目的 **HAT 驱动板** PCB 设计文件。该板作为 Radxa ZERO 3W 的扩展板，提供舵机总线驱动、电源管理及 IMU 接口等功能，是 MicroDuck 控制系统的核心硬件之一。
 
+> **版本说明：** 当前最新版本（Rev.A）参考自 [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) 项目，感谢 kissqy 的硬件设计支持。
+
 ## 设计文件
 
 | 文件 | 说明 |

@@ -29,6 +29,8 @@ Each component will be **individually remodeled from scratch** using parametric 
 
 ### v20261012 — 2026-10-12
 
+> **版本说明：** 当前最新模型参考自 [kissqy/Microduck-kissqy](https://github.com/kissqy/Microduck-kissqy) 项目，感谢 kissqy 的模型设计支持。
+
 **全新模型结构 — 按颜色/材质分类**
 
 新版 3D 打印模型已更新至 `stl模型/` 目录，按打印颜色和材质进行了分类：
