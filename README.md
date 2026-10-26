@@ -43,6 +43,7 @@ This project is heavily inspired by and references [@kissqy](https://github.com/
 MicroDuck-BoBoRedesign/
 ├── 01-3DPrint/    # 3D-printable shell models (STL files, XL330 & HD-1910 variants)
 ├── 02-PCB/        # Custom PCB designs and schematics (IMU module, HAT driver board)
+├── 03-Code/       # Firmware & controller code (based on official Microduck + kissqy Feetech adaptation)
 ├── 05-BOM/        # Bill of Materials and motherboard reference docs
 ├── 06-tools/      # Debugging tools (servo debug tool, CH340 driver, etc.)
 ├── assets/        # Project assets (logo, images, etc.)
@@ -55,6 +56,7 @@ MicroDuck-BoBoRedesign/
 |--------|----------|
 | `01-3DPrint` | Redesigned 3D models optimized for FDM/SLA printing, with two servo variants: `01-XL330-M288-T` (original Dynamixel) and `02-HD-1910-C001` (Feetech domestic servo) |
 | `02-PCB` | PCB layouts and schematics, including IMU module and HAT driver board designs |
+| `03-Code` | Robot firmware and controller code, modified from official Microduck 0.15.1 and kissqy's Feetech variant. Supports debugging, calibration, and operation via Android phone or desktop browser |
 | `05-BOM` | Complete Bill of Materials and Radxa ZERO 3W motherboard reference documentation |
 | `06-tools` | Debugging tools collection, including Feetech servo debug tool and CH340 UART driver |
 

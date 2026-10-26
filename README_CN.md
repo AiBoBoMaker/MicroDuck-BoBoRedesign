@@ -43,6 +43,7 @@
 MicroDuck-BoBoRedesign/
 ├── 01-3DPrint/    # 3D 打印外壳模型（STL 文件，含 XL330 和 HD-1910 两套方案）
 ├── 02-PCB/        # 自定义 PCB 设计与原理图（IMU 模块、HAT 驱动板）
+├── 03-Code/       # 固件与中控代码（基于 Microduck 官方 + kissqy 飞特适配）
 ├── 05-BOM/        # 物料清单（BOM）及主板资料整理
 ├── 06-tools/      # 调试工具（舵机调试工具、CH340 驱动等）
 ├── assets/        # 项目资源（Logo、图片等）
@@ -55,6 +56,7 @@ MicroDuck-BoBoRedesign/
 |------|------|
 | `01-3DPrint` | 针对 FDM/SLA 打印优化的重设计 3D 模型，含两套方案：`01-XL330-M288-T`（原装舵机版）和 `02-HD-1910-C001`（飞特国产舵机版） |
 | `02-PCB` | 自定义控制板的 PCB 布局、原理图，包含 IMU 模块和 HAT 驱动板设计 |
+| `03-Code` | 鸭子机器人固件与中控代码，基于 Microduck 官方 0.15.1 和 kissqy 飞特版本修改，支持通过安卓手机/电脑进行调试、标定和运行 |
 | `05-BOM` | 完整物料清单（BOM）及 Radxa ZERO 3W 主板资料整理 |
 | `06-tools` | 调试工具合集，含飞特舵机调试工具、CH340 串口驱动等 |
 
