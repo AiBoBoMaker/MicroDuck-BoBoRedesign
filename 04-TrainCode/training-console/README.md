@@ -72,5 +72,5 @@
 - [官方任务参数审计](docs/audit-0151/official-task-parameter-audit.zh-CN.md)
 - [轮滑任务审计](docs/audit-0151/roller-audit/official-roller-audit.zh-CN.md)
 - [训练测试方法](tests/README.md)
-- [机器人中控](../firmware/console/)
+- [机器人中控](../../03-DuckCode/microduck-hd1910/firmware/console/)
 - [许可与第三方来源](NOTICE.md)

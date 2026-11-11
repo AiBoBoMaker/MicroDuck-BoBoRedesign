@@ -16,7 +16,7 @@ A Feetech HD1910 adaptation based on official Microduck **0.15.1**, including ro
 | --- | --- | --- |
 | Robot firmware and device services | Official 0.15.1 · control.43 · API40 | [firmware/](firmware/README.en.md) |
 | Robot Console | R17 V167 (1.0.167) | [Robot Console guide](firmware/console/README.en.md) |
-| Training Studio | R1.5.27 | [Training Studio guide](training-console/README.en.md) |
+| Training Studio | R1.5.27 | [04-TrainCode/training-console/](../../04-TrainCode/training-console/) |
 | Public system image | Public Image R1 · first-boot setup R5 | [Image release](https://github.com/kissqy/Microduck-kissqy/releases/tag/public-image-r1) |
 
 V167 includes compiled **control.43** firmware. Update: **Fixed body jitter.** Current `firmware/BUILD.json` matches the BUILD record in the V167 payload. Both consoles' program sources match their respective ZIPs.
@@ -29,12 +29,12 @@ V167 includes compiled **control.43** firmware. Update: **Fixed body jitter.** C
 4. Enter your own `username@robot-IP` and SSH details. Check your robot's calibration, then follow **HOME → hold → walk**. The image preinstalls robot services; upgrade an existing system using “系统维护 → 随包固件” (System Maintenance → Bundled Firmware).
 5. For training, [download Training Studio R1.5.27](https://github.com/kissqy/Microduck-kissqy/raw/refs/heads/main/release-assets/Microduck-Training-Studio-R1.5.27.zip), run `start-training.cmd` or `bash start-training.command`, and open `http://127.0.0.1:8092`.
 
-Training uses an NVIDIA GPU and Linux / WSL2. Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/) first. Initial environment preparation downloads a pinned training engine and dependencies. There are currently 14 action categories and 35 task recipes; see the [training user guide](training-console/USER-GUIDE.en.md).
+Training uses an NVIDIA GPU and Linux / WSL2. Install Git and [uv](https://docs.astral.sh/uv/getting-started/installation/) first. Initial environment preparation downloads a pinned training engine and dependencies. There are currently 14 action categories and 35 task recipes; see the [training console README](../../04-TrainCode/training-console/README.en.md).
 
 ## Using the source
 
 - Robot Console launcher: `firmware/console/start.cmd` or `start.command`.
-- Training Studio launcher: `training-console/start-training.cmd` or `start-training.command`.
+- Training Studio launcher: `../../04-TrainCode/training-console/start-training.cmd` or `start-training.command`.
 - Firmware compilation: [BUILD.md](docs/BUILD.en.md). Compilation is not required for daily use.
 - Release versions and validation scope: [BASELINE.md](docs/BASELINE.en.md). Provenance and checksums: [PUBLICATION-MANIFEST.json](PUBLICATION-MANIFEST.json).
 - Licensing and third-party sources: [LICENSE](LICENSE) · [THIRD-PARTY.md](docs/THIRD-PARTY.en.md).

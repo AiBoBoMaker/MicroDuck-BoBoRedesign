@@ -9,7 +9,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 1 | 主板 | Redax 3W 2G+0EMMC | 299元 | https://item.taobao.com/item.htm?id=763812025816 | 配置：2GB RAM / 无eMMC / 带排针（【Microduck 原版主板】）；同款历史参考价 ¥309.00 |
 | 2 | 舵机 | XL330-M288-T | 258*15=3870 | 暂无货 | 与下行 HD1910-C001 二选一 |
-|  |  | HD1910-C001 | 119*15=1785 | https://item.taobao.com/item.htm?id=1078248851201 | 款式 HD-1910-C001；深圳飞特舵机工厂店；[团购99元/个](https://kissqy.github.io/Microduck-kissqy/build/shopping.html#hd1910-group-buy)；需配序号 14/15 的 AMP2.0 3P 双头反向舵机线 |
+|  |  | HD1910-C001 | 119*15=1785 | https://item.taobao.com/item.htm?id=1078248851201 | 款式 HD-1910-C001；深圳飞特舵机工厂店；[团购99元/个]，需要的话可以加下方作者微信 |
 | 3 | tf卡 | 32G | 30元 | 狗东到处都是 |  |
 | 4 | 双电源供电和舵机驱动 | OpenRB150 | 265元 | https://item.taobao.com/item.htm?id=683303639951 |  |
 |  |  | 总线舵机驱动板 | 26.73元 | https://item.taobao.com/item.htm?id=738817173460 |  |
@@ -30,4 +30,8 @@
 | 14 | 舵机线 | AMP2.0 3P 舵机线 20cm（双头反向） | 1.50元/条 ×30＝45.00元 | https://item.taobao.com/item.htm?id=825340808235 | 200mm / 1007 / 24AWG / 3P / AMP2.0；永茂电子；数量含备料，10cm 与 20cm 按实际走线位置选择 |
 | 15 | 舵机线 | AMP2.0 3P 舵机线 10cm（双头反向） | 1.50元/条 ×30＝45.00元 | https://item.taobao.com/item.htm?id=825340808235 | 100mm / 1007 / 24AWG / 3P / AMP2.0；数量按实际线束方案准备，与 20cm 是不同长度选项 |
 
+## 交流入口
 
+选型、渠道和采购数量上有拿不准的地方，欢迎加微信直接问；点击图片可查看原图。
+
+[![BoBoMaker 微信二维码](../assets/wechat.jpg)](../assets/wechat.jpg)

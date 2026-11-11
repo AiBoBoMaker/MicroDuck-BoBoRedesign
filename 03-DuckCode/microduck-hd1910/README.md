@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | 机器人固件与设备服务 | 官方 0.15.1 · control.43 · API40 | [firmware/](firmware/) |
 | 机器人中控 | R17 V167（1.0.167） | [firmware/console/](firmware/console/) |
-| 训练中控 | R1.5.27 | [training-console/](training-console/) |
+| 训练中控 | R1.5.27 | [04-TrainCode/training-console/](../../04-TrainCode/training-console/) |
 | 公开系统镜像 | Public Image R1 · 首次配网 R5 | [镜像发布页](https://github.com/kissqy/Microduck-kissqy/releases/tag/public-image-r1) |
 
 V167 中控配套已编译的 **control.43** 固件。更新：**修复鸭身抖动的问题**。当前 `firmware/BUILD.json` 与 V167 随包固件的 BUILD 记录一致，两个中控的程序源码与各自 ZIP 同步。
@@ -29,12 +29,12 @@ V167 中控配套已编译的 **control.43** 固件。更新：**修复鸭身抖
 4. 填写自己的 `用户名@机器人IP` 和 SSH 登录信息，连接后核对本机标定，按 **HOME → 保持 → 行走** 使用。镜像已预装机器人服务；已有系统需要升级时，可在中控“系统维护”安装随包固件。
 5. 需要训练时，[下载训练中控 R1.5.27](https://github.com/kissqy/Microduck-kissqy/raw/refs/heads/main/release-assets/Microduck-Training-Studio-R1.5.27.zip)，运行 `start-training.cmd` 或 `bash start-training.command`，打开 `http://127.0.0.1:8092`。
 
-训练使用 NVIDIA GPU + Linux/WSL2，先安装 git 和 [uv](https://docs.astral.sh/uv/getting-started/installation/)。首次准备环境会下载固定版本的训练引擎和依赖。当前提供 14 类动作、35 种任务配方；具体使用见 [训练中控说明](training-console/README.zh-CN.md)。
+训练使用 NVIDIA GPU + Linux/WSL2，先安装 git 和 [uv](https://docs.astral.sh/uv/getting-started/installation/)。首次准备环境会下载固定版本的训练引擎和依赖。当前提供 14 类动作、35 种任务配方；具体使用见 [训练中控说明](../../04-TrainCode/training-console/README.zh-CN.md)。
 
 ## 从源码使用
 
 - 机器人中控启动入口：`firmware/console/start.cmd` 或 `start.command`。
-- 训练中控启动入口：`training-console/start-training.cmd` 或 `start-training.command`。
+- 训练中控启动入口：`../../04-TrainCode/training-console/start-training.cmd` 或 `start-training.command`。
 - 固件编译：[BUILD.md](docs/BUILD.md)。编译不是日常使用的前置要求。
 - 发布版本与验证范围：[BASELINE.md](docs/BASELINE.md)。完整来源及校验记录：[PUBLICATION-MANIFEST.json](PUBLICATION-MANIFEST.json)。
 - 许可与第三方来源：[LICENSE](LICENSE) · [THIRD-PARTY.md](docs/THIRD-PARTY.md)。

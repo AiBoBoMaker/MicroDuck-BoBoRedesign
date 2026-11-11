@@ -72,5 +72,5 @@ Monitoring displays the active training run; simulation evaluates a selected sav
 - [Official task parameter audit](docs/audit-0151/official-task-parameter-audit.en.md)
 - [Roller task audit](docs/audit-0151/roller-audit/official-roller-audit.en.md)
 - [Testing](tests/README.md)
-- [Robot Console](../firmware/console/README.en.md)
+- [Robot Console](../../03-DuckCode/microduck-hd1910/firmware/console/README.en.md)
 - [Licenses and third-party sources](NOTICE.md)
