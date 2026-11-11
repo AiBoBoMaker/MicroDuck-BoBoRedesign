@@ -1,0 +1,29 @@
+# Wi-Fi provision button. Installed to /etc/systemd/system/.
+#
+# Pulled into sysinit so the poll is alive during the first seconds of uptime,
+# not after multi-user. DefaultDependencies is off for the same reason: the
+# ordinary After=basic.target would start this after the 5 second window had
+# already closed.
+#
+# Type=simple on purpose. systemd marks it started as soon as the process is
+# running, so the poll — and, if the button was pressed, the page that stays
+# up afterwards — does not hold sysinit.target. Restart=no: a later restart
+# would open a second boot window.
+
+[Unit]
+Description=Wi-Fi provision button (header pin 7, first 5s of boot)
+DefaultDependencies=no
+After=local-fs.target systemd-udevd.service
+Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+# Optional. A missing file keeps the Radxa ZERO 3W defaults (pin 7, wlan0).
+EnvironmentFile=-/etc/wifi-provision.env
+ExecStart=/usr/local/sbin/wifi-provision-button.py
+Restart=no
+TimeoutStopSec=20
+
+[Install]
+WantedBy=sysinit.target

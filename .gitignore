@@ -34,3 +34,6 @@ venv/
 # Temporary files
 *.tmp
 *.log
+
+# Local backups
+.backup/
