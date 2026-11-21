@@ -6,9 +6,22 @@
 //! buttons nothing else uses.
 
 mod audio;
+mod expression;
 mod identity;
+mod keywords;
 mod machine;
+mod ota;
 mod protocol;
 mod session;
 
-pub use session::{run, SessionConfig};
+pub use expression::{
+    clamp_expression_amp, head_offsets, parse_emotion, Emotion, EXPRESSION_AMP_MAX,
+    EXPRESSION_OFFSET_LIMIT,
+};
+pub use identity::device_id;
+pub use keywords::{
+    load_json_file, match_keyword, parse_json, preset_offsets, rules_to_json, KeywordRule,
+    PresetGesture, PRESET_OFFSET_LIMIT,
+};
+pub use machine::Phase;
+pub use session::{phase_code, run, SessionConfig};

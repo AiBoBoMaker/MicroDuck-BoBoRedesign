@@ -73,6 +73,13 @@ class InputTests(unittest.TestCase):
         self.assertIn(('robot.mouth',{'open':.3}),self.robot.calls)
         self.assertIn(('robot.sound',{'tag':'chirp'}),self.robot.calls)
         self.send(['x']);self.assertIn(('robot.sound',{'tag':'wheee','hold':False}),self.robot.calls)
+    def test_r3_and_guide_toggle_robot_voice(self):
+        self.send(['rs']);self.assertIn(('robot.voice',None),self.robot.calls)
+        self.robot.calls.clear();self.send(['guide']);self.assertIn(('robot.voice',None),self.robot.calls)
+        self.robot.calls.clear();self.send(['rs'])
+        self.assertEqual(self.robot.calls.count(('robot.voice',None)),1)
+        self.robot.calls.clear();self.send(['rs'])  # held: no second edge
+        self.assertEqual(self.robot.calls.count(('robot.voice',None)),0)
     def test_malformed_nonfinite_and_expired_input_is_never_written(self):
         with self.assertRaises(ValueError):self.send(lx=float('nan'))
         self.assertEqual(self.robot.calls,[])

@@ -24,7 +24,7 @@ def reference(task):
 class CatalogAndContractTests(unittest.TestCase):
     def test_one_source_current_profiles_and_native_physical_variants(self):
         self.assertEqual(list(PINS), [ENGINE])
-        self.assertEqual(len(TASKS), 37)
+        self.assertEqual(len(TASKS), 39)
         catalog=json.loads((ROOT/'data/tasks.json').read_text())
         self.assertEqual({x['id'] for x in catalog['tasks']}, set(TASKS))
         for task, info in TASKS.items():
@@ -36,7 +36,12 @@ class CatalogAndContractTests(unittest.TestCase):
                 self.assertFalse(any(r['help'].get('documentation_missing') for r in c['rows']))
                 self.assertEqual(c['full']['agent']['max_iterations'], info['iterations'])
                 self.assertEqual(c['full']['env']['actions']['joint_pos']['scale'], 1.0)
-                self.assertAlmostEqual(c['model']['total_mass_kg'], .81958644 if info['hardware']=='rollers' else .820, places=9)
+                mass = c['model']['total_mass_kg']
+                if info['hardware'] == 'rollers':
+                    self.assertAlmostEqual(mass, .81958644, places=9)
+                else:
+                    # Bundled snapshots may still be 820g; new builds follow the 800g battery recipe.
+                    self.assertTrue(abs(mass - .820) < 1e-9 or abs(mass - .800) < 1e-9, mass)
                 self.assertEqual(c['full']['env']['events']['randomize_joint_friction']['params']['scale_range'], [.9,1.1])
 
     def test_teacher_contracts_match_and_physics_change_is_detected(self):
@@ -60,6 +65,9 @@ class CatalogAndContractTests(unittest.TestCase):
             elif info['role']=='ground_pick':
                 self.assertEqual(m['command']['encoding'],'phase');self.assertEqual(m['command']['period_s'],4)
                 self.assertEqual(m['command']['end_phase'],.7)
+            elif info['role']=='splits':
+                self.assertEqual(m['command']['encoding'],'phase');self.assertEqual(m['command']['period_s'],6)
+                self.assertEqual(m['command']['end_phase'],.7);self.assertEqual(m['slot'],'ground_pick')
             elif info['role']=='sitstand':
                 self.assertEqual(m['kind'],'scripted');self.assertEqual(m['command']['encoding'],'posture_flag')
             elif info['role']=='roulade':
@@ -193,7 +201,7 @@ class RealOfficialSourceTests(unittest.TestCase):
                 self.assertEqual(before,{k:plain(getattr(cfg,k)) for k in before})
                 model=cfg.scene.entities['robot'].build().spec.compile()
                 self.assertEqual(model.nu,14)
-                self.assertAlmostEqual(float(model.body_mass.sum()), .88358644 if TASKS[task]['hardware']=='rollers' else .884, places=7)
+                self.assertAlmostEqual(float(model.body_mass.sum()), .79958644 if TASKS[task]['hardware']=='rollers' else .800, places=7)
                 self.assertEqual(model.ngeom,original_spec.ngeom)
                 validate_manifest(manifest_for(req,deployment_contract(req,reference(task)['inspection']),'a'*64))
 

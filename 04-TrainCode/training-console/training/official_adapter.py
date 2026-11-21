@@ -313,22 +313,33 @@ def register_tasks():
     from mjlab.tasks.registry import list_tasks, register_mjlab_task
     # The public factory supports both feet, while upstream registers right only.
     # Left kick and flourish kick get their own IDs on that same factory.
+    # Grand splits (大劈叉) is a console-local curriculum registered the same way.
     from mjlab_microduck.tasks.microduck_ball_kick_env_cfg import make_microduck_ball_kick_env_cfg, MicroduckBallKickRlCfg
     from mjlab_microduck.tasks.backlash import make_backlash_variant
     from mjlab_microduck.tasks import MicroduckOnPolicyRunner
     from mjlab_microduck.robot.microduck_constants import MICRODUCK_BACKLASH_ROBOT_CFG
+    if __package__:
+        from . import splits_task
+    else:
+        import splits_task
     for task, info in TASKS.items():
-        if info['role'] not in ('kick_left', 'kick_flourish') or task in list_tasks():
+        if info['role'] not in ('kick_left', 'kick_flourish', 'splits') or task in list_tasks():
             continue
-        cfg = copy.deepcopy(MicroduckBallKickRlCfg)
-        if info['role'] == 'kick_left':
-            cfg.experiment_name = cfg.run_name = 'ball_kick_left'
-            env = make_microduck_ball_kick_env_cfg(kick_foot='left')
-            play = make_microduck_ball_kick_env_cfg(play=True, kick_foot='left')
+        if info['role'] == 'splits':
+            cfg = copy.deepcopy(splits_task.get_rl_cfg())
+            cfg.experiment_name = cfg.run_name = 'splits'
+            env = splits_task.make_microduck_splits_env_cfg()
+            play = splits_task.make_microduck_splits_env_cfg(play=True)
         else:
-            cfg.experiment_name = cfg.run_name = 'ball_kick_flourish'
-            env = make_microduck_ball_kick_env_cfg(kick_foot='right')
-            play = make_microduck_ball_kick_env_cfg(play=True, kick_foot='right')
+            cfg = copy.deepcopy(MicroduckBallKickRlCfg)
+            if info['role'] == 'kick_left':
+                cfg.experiment_name = cfg.run_name = 'ball_kick_left'
+                env = make_microduck_ball_kick_env_cfg(kick_foot='left')
+                play = make_microduck_ball_kick_env_cfg(play=True, kick_foot='left')
+            else:
+                cfg.experiment_name = cfg.run_name = 'ball_kick_flourish'
+                env = make_microduck_ball_kick_env_cfg(kick_foot='right')
+                play = make_microduck_ball_kick_env_cfg(play=True, kick_foot='right')
         if info['backlash']:
             env = make_backlash_variant(env, MICRODUCK_BACKLASH_ROBOT_CFG)
             play = make_backlash_variant(play, MICRODUCK_BACKLASH_ROBOT_CFG)

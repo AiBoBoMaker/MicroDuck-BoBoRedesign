@@ -16,6 +16,10 @@ The window is the first 5 seconds of uptime. A press in that window — or a
 button still held when this process starts late — opens the same hotspot the
 first-boot page uses (Microduck / 12345678, http://10.42.0.1:8088) and
 speaks a prompt. The hotspot profile is marked not to reconnect on later boots.
+
+If no saved home Wi-Fi profile exists (factory image / after a clone wipe),
+the same hotspot opens automatically. Set WIFI_PROVISION_AUTO=0 to disable.
+``--force`` skips the button window and enters provision immediately.
 """
 
 from __future__ import annotations
@@ -215,6 +219,67 @@ def wait_wlan(timeout=90):
     return False
 
 
+def auto_provision_enabled():
+    raw = os.environ.get("WIFI_PROVISION_AUTO", "1").strip().lower()
+    return raw not in ("0", "no", "false", "off")
+
+
+def has_home_wifi(nmcli_out):
+    """True when NetworkManager already has a non-AP Wi-Fi profile.
+
+    ``nmcli_out`` is from
+    ``nmcli -t -f NAME,TYPE,802-11-wireless.mode connection show``.
+    AP profiles (the provision hotspot) do not count as home Wi-Fi.
+    """
+    for line in nmcli_out.splitlines():
+        parts = line.split(":")
+        if len(parts) < 2:
+            continue
+        typ = parts[1]
+        mode = parts[2].lower() if len(parts) > 2 else ""
+        if typ != "802-11-wireless":
+            continue
+        if "ap" in mode:
+            continue
+        return True
+    return False
+
+
+def no_home_wifi(timeout=60):
+    """Wait for nmcli, then True if there is no saved home Wi-Fi."""
+    if not auto_provision_enabled():
+        return False
+    deadline = time.monotonic() + timeout
+    logged_wait = False
+    while time.monotonic() < deadline and not _stop:
+        if shutil.which("nmcli") is None:
+            if not logged_wait:
+                log("waiting for nmcli / NetworkManager")
+                logged_wait = True
+            time.sleep(1)
+            continue
+        listed = _run(
+            [
+                "nmcli",
+                "-t",
+                "-f",
+                "NAME,TYPE,802-11-wireless.mode",
+                "connection",
+                "show",
+            ],
+            15,
+        )
+        if listed.returncode != 0:
+            if not logged_wait:
+                log("waiting for NetworkManager to answer nmcli")
+                logged_wait = True
+            time.sleep(1)
+            continue
+        return not has_home_wifi(listed.stdout)
+    log("NetworkManager did not answer in time; skipping auto provision")
+    return False
+
+
 def scan_networks():
     _run(["nmcli", "radio", "wifi", "on"], 10)
     _run(["nmcli", "device", "wifi", "rescan", "ifname", WLAN], 20)
@@ -353,14 +418,20 @@ def connect_home(ssid, psk):
 
 
 def _play(wav, device):
-    played = subprocess.run(
-        ["aplay", "-D", device, "-q", wav],
-        timeout=12,
-        check=False,
-    )
-    if played.returncode == 0:
+    try:
+        played = subprocess.run(
+            ["aplay", "-D", device, "-q", wav],
+            timeout=12,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        played = None
+    if played is not None and played.returncode == 0:
         return True
-    fallback = subprocess.run(["aplay", "-q", wav], timeout=12, check=False)
+    try:
+        fallback = subprocess.run(["aplay", "-q", wav], timeout=12, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
     return fallback.returncode == 0
 
 
@@ -386,22 +457,25 @@ def _espeak(phrase, device):
 
 def announce():
     """Duck greet, then a spoken sentence, once the codec is up."""
-    device = os.environ.get("WIFI_PROVISION_ALSA", "plughw:aic3104")
-    deadline = time.monotonic() + 25
-    while time.monotonic() < deadline and not _stop:
-        try:
-            cards = open("/proc/asound/cards", "r", encoding="utf-8", errors="replace").read()
-        except OSError:
-            cards = ""
-        if "aic3104" in cards.lower() or "tlv320" in cards.lower():
-            break
-        time.sleep(0.5)
-    bank = os.environ.get("WIFI_PROVISION_BANK", "/var/lib/robot/sounds")
-    wavs = sorted(glob.glob(os.path.join(bank, "greet", "*.wav")))
-    if wavs and shutil.which("aplay"):
-        _play(wavs[0], device)
-    if not _espeak(PHRASE, device):
-        log("spoken prompt unavailable; page is http://10.42.0.1:%s" % PORT)
+    try:
+        device = os.environ.get("WIFI_PROVISION_ALSA", "plughw:aic3104")
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline and not _stop:
+            try:
+                cards = open("/proc/asound/cards", "r", encoding="utf-8", errors="replace").read()
+            except OSError:
+                cards = ""
+            if "aic3104" in cards.lower() or "tlv320" in cards.lower():
+                break
+            time.sleep(0.5)
+        bank = os.environ.get("WIFI_PROVISION_BANK", "/var/lib/robot/sounds")
+        wavs = sorted(glob.glob(os.path.join(bank, "greet", "*.wav")))
+        if wavs and shutil.which("aplay"):
+            _play(wavs[0], device)
+        if not _espeak(PHRASE, device):
+            log("spoken prompt unavailable; page is http://10.42.0.1:%s" % PORT)
+    except Exception as exc:  # noqa: BLE001 — voice must never kill provision
+        log("spoken prompt failed (%s); page is http://10.42.0.1:%s" % (exc, PORT))
 
 
 _MARK = (
@@ -639,6 +713,11 @@ def main(argv):
 
     signal.signal(signal.SIGTERM, _on_signal)
     signal.signal(signal.SIGINT, _on_signal)
+
+    if "--force" in argv or "--provision" in argv:
+        log("forced provision mode")
+        return provision()
+
     try:
         boot = uptime_s()
     except (OSError, ValueError) as exc:
@@ -652,13 +731,29 @@ def main(argv):
         pass
     chip = find_chip()
     line = int(os.environ.get("WIFI_PROVISION_GPIO_LINE", str(GPIO_LINE)))
-    if not chip:
-        log("no gpiochip labelled %s (install gpiod); skipping" % GPIO_BANK_LABEL)
+    if chip:
+        if watch_button(GpioReader(chip, line)):
+            log("provision mode (button)")
+            return provision()
+        log("button not pressed in the first %.0fs" % WINDOW_S)
+    else:
+        log(
+            "no gpiochip labelled %s (or WIFI_PROVISION_GPIO_CHIP unset); "
+            "button watch skipped" % GPIO_BANK_LABEL
+        )
+
+    # Factory / clone wipe: no saved home Wi-Fi → open the same hotspot.
+    # This unit starts in sysinit, before NetworkManager. Wait for wlan0
+    # first so nmcli is actually usable, otherwise we time out and exit
+    # while the radio is still coming up.
+    log("checking whether home Wi-Fi is configured")
+    if not wait_wlan(180):
+        log("wlan0 did not appear; skipping auto provision")
         return 0
-    if watch_button(GpioReader(chip, line)):
-        log("provision mode")
+    if no_home_wifi(timeout=30):
+        log("no home Wi-Fi; entering provision mode")
         return provision()
-    log("button not pressed in the first %.0fs" % WINDOW_S)
+    log("home Wi-Fi already configured; leaving the network alone")
     return 0
 
 

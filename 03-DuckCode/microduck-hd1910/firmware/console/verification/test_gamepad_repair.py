@@ -180,15 +180,15 @@ class RepairTests(unittest.TestCase):
         h = Harness()
         result = h.execute(operation='pair')
         self.assertEqual(result['status'], 'completed', result)
-        self.assertEqual(h.commands.count('connect ' + ADDRESS + ' ' + gp.HID), 1)
-        self.assertLess(h.commands.index('pair ' + ADDRESS), h.commands.index('connect ' + ADDRESS + ' ' + gp.HID))
+        self.assertEqual(h.commands.count('connect ' + ADDRESS), 1)
+        self.assertLess(h.commands.index('pair ' + ADDRESS), h.commands.index('connect ' + ADDRESS))
         self.assertTrue(result['physical'])
 
     def test_connected_without_input_repairs_hid_once_with_existing_bond(self):
         h = Harness(paired=True, connected=True, fault='acl_only')
         result = h.execute()
         self.assertEqual(result['status'], 'completed', result)
-        self.assertEqual(h.commands.count('connect ' + ADDRESS + ' ' + gp.HID), 1)
+        self.assertEqual(h.commands.count('connect ' + ADDRESS), 1)
         self.assertFalse(any(c.startswith(('pair ', 'remove ', 'scan ', 'power off')) for c in h.commands))
         self.assertFalse(any(c[0] == 'systemctl' and c[1] in ('stop', 'restart', 'enable') for c in h.calls))
 
@@ -482,10 +482,10 @@ for line in sys.stdin:
                 for command, success in [('power on', 'Changing power on succeeded'), ('agent off', 'Agent unregistered'),
                         ('agent NoInputNoOutput', 'Agent registered'), ('default-agent', 'Default agent request successful'),
                         ('scan on', 'Discovery started'), ('scan off', 'Discovery stopped'),
-                        ('pair ' + ADDRESS, 'Pairing successful'), ('connect ' + ADDRESS + ' ' + gp.HID, 'Connection successful')]:
+                        ('pair ' + ADDRESS, 'Pairing successful'), ('connect ' + ADDRESS, 'Connection successful')]:
                     self.assertIn(success, session.command(command, [success], timeout=1))
                 with self.assertRaises(gp.RepairError): session.command('invalid', ['success'], timeout=1)
-                self.assertIn('AlreadyConnected', session.command('connect already ' + gp.HID,
+                self.assertIn('AlreadyConnected', session.command('connect already',
                               ['Connection successful', 'org.bluez.Error.AlreadyConnected'], timeout=1))
                 self.assertIsNone(children[0].poll())
             finally: session.close()

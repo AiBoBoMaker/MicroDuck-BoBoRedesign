@@ -29,6 +29,8 @@ PROFILES = [
      '当前坐站配方含坐姿头部突变和后仰扰动训练；vx=1 坐下，vx=0 站起。', 'Flat', False, '当前实机动作 / Current actions'),
     ('ground_pick', 'GroundPick', '低头捡取 / Ground pick', 20000, 'ground_pick',
      '官方相位动作：周期4秒、运行窗口2.8秒。', 'Flat', False, '当前实机动作 / Current actions'),
+    ('splits', 'Splits', '大劈叉 / Grand splits', 20000, 'splits',
+     '中控本地相位动作：大劈叉（左脚前、右脚后，非下腰）。关键帧按官方左右髋符号；周期约6秒，深度课程由浅到深。', 'Flat', False, '当前实机动作 / Current actions'),
     ('kick_left', 'BallKickLeft', '左脚踢球 / Left kick', 10000, 'ball_kick',
      '调用官方 BallKick 工厂的 kick_foot=left；独立训练左脚，不复用右脚权重。', 'Flat', False, '当前实机动作 / Current actions'),
     ('kick_right', 'BallKick', '右脚踢球 / Right kick', 10000, 'ball_kick',
@@ -66,6 +68,7 @@ DEPLOYMENT_NOTES = {
     'kick_left': '独立左脚模型；当前R148尚不接收此任务，运行接入条件随导出包提供。',
     'kick_right': '独立右脚模型；当前R148尚不接收此任务，运行接入条件随导出包提供。',
     'kick_flourish': '随机起步，不加载任何老师。先快速后抬并头转向右，停稳后再快速前踢，脚离地，然后站回。运行窗口4秒。当前R148尚不接收此任务，运行接入条件随导出包提供。',
+    'splits': '中控本地大劈叉课程（左前右后）；0.15.1需相位入口。勿与向后下腰混淆。当前R148尚不接收此任务。',
 }
 FLOURISH_RAISE_S = 0.5
 FLOURISH_ROOSTER_S = 1.0
@@ -93,7 +96,8 @@ for role, family, title, budget, source, description, default_terrain, default_b
                 'id': name, 'upstream': upstream, 'upstream_task': upstream,
                 'role': role, 'name': title, 'description': description,
                 'iterations': budget, 'enabled': True, 'engine': ENGINE,
-                'source_revision': REVISION, 'source': f'microduck_{source}_env_cfg.py',
+                'source_revision': REVISION,
+                'source': ('splits_task.py' if role == 'splits' else f'microduck_{source}_env_cfg.py'),
                 'group': group, 'terrain': terrain, 'backlash': backlash,
                 'backlash_total_deg': 2.0 if backlash else 0.0,
                 'hardware': 'rollers' if role in ROLLER_ROLES else 'feet',

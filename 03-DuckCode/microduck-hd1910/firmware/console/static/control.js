@@ -12,6 +12,7 @@ export class ControlPanel {
     this.cfg=cfg;this.root=root;this.client=crypto.randomUUID().replaceAll('-','');this.seq=0;this.connected=false;this.connecting=false;
     this.disabled=true;this.armed=false;this.epoch=0;this.real=false;this.s=null;this.options={};this.frames=[];this.sending=false;
     this.feedback=root.querySelector('#control-feedback');this.pad=new PadControls(this);this.retry=0;this.linkEpoch=0;this.sessionUsed=false;
+    window.__boboSyncVoiceLatch=active=>this.pad.syncVoiceLatch(active);
     this.socket=new ControlSocket(cfg.control_token,message=>{this.suspend();this.connected=false;this.retry=Date.now()+1500;if(!this.servicePaused())showFeedback(this.feedback,message,'error');},status=>{this.state={...this.state,...status};this.real=!!status.real_connected;if(this.real||status.available===false)this.suspend();this.paint();});
     this.volumeDirty=false;this.volumeBusy=false;this.mouthDirty=false;
     const volume=root.querySelector('#control-volume'),mouth=root.querySelector('#control-mouth');
@@ -66,7 +67,9 @@ export class ControlPanel {
     finally{this.connecting=false;this.paint();}
   }
   change(arm=true){
-    if(this.disabled)return;if(arm)this.armed=true;if(!this.armed)return;
+    // R3/Guide latch must still send while other pad inputs are disabled.
+    const voiceEdge=[...this.pad.buttons].some(b=>b==='rs'||b==='guide');
+    if(this.disabled&&!voiceEdge)return;if(arm)this.armed=true;if(!this.armed)return;
     if(this.frames.length>=32){this.suspend();showFeedback(this.feedback,'输入回执延迟过大，已暂停网页输入','error');return;}
     const frame=this.pad.frame(),key=JSON.stringify([frame.buttons.slice().sort(),frame.axes.dx,frame.axes.dy,...['lt','rt'].map(k=>[frame.axes[k]>0,frame.axes[k]>=.3])]);
     const next={frame,key,at:performance.now()},last=this.frames.at(-1);

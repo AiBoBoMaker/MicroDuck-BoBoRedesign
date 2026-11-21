@@ -22,16 +22,19 @@ MODEL = json.loads((ROOT/'data/baseline_official0151.json').read_text())['model'
 
 
 class ServoMassRecipeTests(unittest.TestCase):
-    def test_default_is_official_skeleton_hd1910_battery150(self):
+    def test_default_is_official_skeleton_hd1910_battery100(self):
         recipe = fresh_recipe()
         self.assertEqual(recipe['baseline'], 'official_0151')
-        self.assertEqual(recipe['robot']['servo_mass_model'], 'hd1910_battery150_v1')
-        self.assertEqual(MASS_CLOSURE_PROFILE['battery_g'], 150.0)
-        self.assertEqual(MASS_CLOSURE_PROFILE['target_g'], 884.0)
+        self.assertEqual(recipe['robot']['servo_mass_model'], 'hd1910_battery100_v1')
+        self.assertEqual(MASS_CLOSURE_PROFILE['battery_g'], 100.0)
+        self.assertEqual(MASS_CLOSURE_PROFILE['target_g'], 800.0)
         self.assertEqual(len(recipe['calibration']['data']['joints']), 15)
         saved = {'robot': {'servo_mass_model': 'hd1910_820g_v1'}}
         self.assertTrue(migrate_battery_mass(saved))
-        self.assertEqual(saved['robot']['servo_mass_model'], 'hd1910_battery150_v1')
+        self.assertEqual(saved['robot']['servo_mass_model'], 'hd1910_battery100_v1')
+        from150 = {'robot': {'servo_mass_model': 'hd1910_battery150_v1'}}
+        self.assertTrue(migrate_battery_mass(from150))
+        self.assertEqual(from150['robot']['servo_mass_model'], 'hd1910_battery100_v1')
         manual = {'robot': {'servo_mass_model': 'hd1910_820g_v1', 'bodies': {'trunk_base': {'mass': .25}}}}
         self.assertFalse(migrate_battery_mass(manual))
 
@@ -76,10 +79,10 @@ class ServoMassPhysicsTests(unittest.TestCase):
         apply_robot(old, {'servo_mass_model':'hd1910_23g'}, 'official_0151')
         self.assertAlmostEqual(sum(old.scene.entities['robot'].spec_fn().compile().body_mass),.81224318,places=12)
         battery = self.config()
-        apply_robot(battery, {'servo_mass_model':'hd1910_battery150_v1'}, 'official_0151')
+        apply_robot(battery, {'servo_mass_model':'hd1910_battery100_v1'}, 'official_0151')
         compiled = battery.scene.entities['robot'].spec_fn().compile()
-        self.assertAlmostEqual(sum(compiled.body_mass), .884, places=12)
-        for name, expected in [('jaw_soft', .201766), ('trunk_base', .27798082)]:
+        self.assertAlmostEqual(sum(compiled.body_mass), .800, places=12)
+        for name, expected in [('jaw_soft', .201766), ('trunk_base', .19398082)]:
             bid = mujoco.mj_name2id(compiled, mujoco.mjtObj.mjOBJ_BODY, name)
             self.assertAlmostEqual(compiled.body_mass[bid], expected, places=12)
             original = next(b for b in MODEL['bodies'] if b['name']==name)
@@ -87,11 +90,14 @@ class ServoMassPhysicsTests(unittest.TestCase):
                 self.assertAlmostEqual(new_i, old_i*expected/original['mass_kg'], places=12)
         trunk = next(b for b in MODEL['bodies'] if b['name']=='trunk_base')
         bid = mujoco.mj_name2id(compiled, mujoco.mjtObj.mjOBJ_BODY, 'trunk_base')
-        profile = MASS_CLOSURE_PROFILES['hd1910_battery150_v1']
-        expected_ipos = com_with_rear_mass(trunk['ipos'], .27798082, profile['rear_mass_g']/1000, profile['rear_mass_point_m'])
+        profile = MASS_CLOSURE_PROFILES['hd1910_battery100_v1']
+        expected_ipos = com_with_rear_mass(trunk['ipos'], .19398082, profile['rear_mass_g']/1000, profile['rear_mass_point_m'])
         for old, new, exp in zip(trunk['ipos'], compiled.body_ipos[bid], expected_ipos):
             self.assertAlmostEqual(new, exp, places=9)
         self.assertLess(compiled.body_ipos[bid][0], trunk['ipos'][0])
+        legacy150 = self.config()
+        apply_robot(legacy150, {'servo_mass_model':'hd1910_battery150_v1'}, 'official_0151')
+        self.assertAlmostEqual(sum(legacy150.scene.entities['robot'].spec_fn().compile().body_mass), .884, places=12)
         eight = self.config()
         apply_robot(eight, {'servo_mass_model':'hd1910_820g_v1'}, 'official_0151')
         eight_model = eight.scene.entities['robot'].spec_fn().compile()
@@ -103,10 +109,10 @@ class ServoMassPhysicsTests(unittest.TestCase):
     def test_manual_trunk_ipos_survives_battery_shift(self):
         cfg = self.config()
         ipos = [-0.04, 0.0, 0.001]
-        apply_robot(cfg, {'servo_mass_model':'hd1910_battery150_v1', 'bodies':{'trunk_base':{'ipos':ipos}}}, 'official_0151')
+        apply_robot(cfg, {'servo_mass_model':'hd1910_battery100_v1', 'bodies':{'trunk_base':{'ipos':ipos}}}, 'official_0151')
         model = cfg.scene.entities['robot'].spec_fn().compile()
         bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, 'trunk_base')
-        self.assertAlmostEqual(model.body_mass[bid], .27798082, places=8)
+        self.assertAlmostEqual(model.body_mass[bid], .19398082, places=8)
         for old, new in zip(ipos, model.body_ipos[bid]):
             self.assertAlmostEqual(old, new, places=9)
 

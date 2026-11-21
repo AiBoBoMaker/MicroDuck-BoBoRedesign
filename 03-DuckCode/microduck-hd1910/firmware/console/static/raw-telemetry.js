@@ -66,14 +66,17 @@ export function adaptService(result,report,calibration,sampleElapsed){
     const valid=Number.isInteger(pos)&&pos>=-32767&&pos<=32767&&(raw.joint||raw.name)===row.name;
     Object.assign(row,{source:'robot.busStatus',status:fresh&&valid&&(commissioning||raw.feedback_fresh!==false)?'live':valid?'stale':'unavailable',calibrated:false,position_raw:pos,speed_raw:get(raw,'speed_raw'),load_raw:get(raw,'load_raw'),current_raw:get(raw,'current_raw'),voltage_v:get(raw,'voltage_v',get(raw,'volts')),temperature_c:get(raw,'temperature_c'),current_source:'飞特原始计数；未经电流单位标定',encoder_deg:valid?(pos-2048)*360/4096:null,calibration:Object.keys(cal).length?cal:null,sample_age_ms:age,moving:get(raw,'moving'),current_ma:commissioning?null:get(raw,'current_ma')});
     if(commissioning){
-      Object.assign(row,{angle_deg:null,target_deg:null,error_deg:null,velocity_rpm:null});
+      // Live angle_deg / 3D must not apply the on-disk zero while calibrating: a board
+      // moved to another skeleton still carries the previous machine's file, and feeding
+      // that converted angle back as「已知角度」rewrites the old offset into a new zero.
+      Object.assign(row,{angle_deg:null,target_deg:null,error_deg:null,velocity_rpm:null,saved_angle_deg:null,saved_target_deg:null});
       const okay=valid&&raw.calibrated===true&&cal.calibrated===true&&cal.name===row.name&&Number.isInteger(cal.zero_raw)&&cal.zero_raw>=0&&cal.zero_raw<=4095&&Number.isInteger(cal.direction)&&[-1,1].includes(cal.direction)&&finite(cal.min_rad)&&finite(cal.max_rad)&&cal.min_rad<cal.max_rad;
-      if(okay){row.angle_deg=(pos-cal.zero_raw)*360/4096*cal.direction;row.calibrated=true;}
+      if(okay){row.saved_angle_deg=(pos-cal.zero_raw)*360/4096*cal.direction;row.calibrated=true;}
       const goal=motion.id===row.id?get(motion,'target_raw'):null;row.goal_position_raw=goal;
-      if(okay&&finite(goal)){row.target_deg=(goal-cal.zero_raw)*360/4096*cal.direction;row.error_deg=row.angle_deg-row.target_deg;}
+      if(okay&&finite(goal)){row.saved_target_deg=(goal-cal.zero_raw)*360/4096*cal.direction;}
       row.torque_enabled=active?(torque==='off'?false:torque==='single_joint_enabled'?row.id===motion.id:null):null;
     }else{
-      Object.assign(row,{calibrated:raw.calibrated===true,angle_deg:null,target_deg:null,error_deg:null});
+      Object.assign(row,{calibrated:raw.calibrated===true,angle_deg:null,target_deg:null,error_deg:null,saved_angle_deg:null,saved_target_deg:null});
       if(finite(raw.position_rad))row.angle_deg=deg(raw.position_rad);
       if(finite(raw.velocity_rad_s))row.velocity_rpm=raw.velocity_rad_s*30/Math.PI;
       row.torque_enabled=active?get(diagnostic,'torque_state_confirmed'):null;

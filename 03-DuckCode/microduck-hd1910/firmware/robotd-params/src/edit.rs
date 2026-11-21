@@ -721,7 +721,13 @@ mod tests {
         let m = model("");
         for row in m.rows() {
             assert!(!row.overridden(), "{}", row.entry.key);
-            assert!(!row.effective().is_empty(), "{}", row.entry.key);
+            // Empty-string Text defaults (e.g. bobo.url) are legitimate — the daemon
+            // treats them as "not configured yet".
+            assert!(
+                !row.effective().is_empty() || matches!(row.entry.kind, Kind::Text),
+                "{}",
+                row.entry.key
+            );
         }
         // Spot-check values against the daemon's documented defaults.
         let rows = m.rows();
@@ -1086,6 +1092,7 @@ mod tests {
                 "theremin",
                 "head_imu",
                 "audio",
+                "bobo",
                 "media",
                 // Last, and the editor shows sections in this order: the pad is what a robot's
                 // buttons do, which is the thing somebody browses for rather than tunes.

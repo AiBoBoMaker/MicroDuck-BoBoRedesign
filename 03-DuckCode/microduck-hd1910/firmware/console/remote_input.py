@@ -9,7 +9,8 @@ import sys
 import time
 
 LEGACY_NAME = 'Microduck R17 Web Xbox'
-BUTTONS = {'start', 'select', 'a', 'b', 'x', 'y', 'rb'}
+# rs / guide match padd: RightThumb and Mode toggle the bobo voice call.
+BUTTONS = {'start', 'select', 'a', 'b', 'x', 'y', 'rb', 'rs', 'guide'}
 AXES = {'lx', 'ly', 'rx', 'ry', 'lt', 'rt', 'dx', 'dy'}
 
 
@@ -207,6 +208,14 @@ class Input:
                 print('webpad Start reply: '+json.dumps(result, ensure_ascii=False, default=str), file=sys.stderr, flush=True)
             except Exception as exc:
                 print(f'webpad Start failed: {exc}', file=sys.stderr, flush=True)
+                raise
+        # Same edge as padd's RightThumb / Mode → robot.voice (BoBo chat).
+        if down & {'rs', 'guide'}:
+            try:
+                result = intent('robot.voice')
+                print('webpad R3/Guide voice: '+json.dumps(result, ensure_ascii=False, default=str), file=sys.stderr, flush=True)
+            except Exception as exc:
+                print(f'webpad R3/Guide voice failed: {exc}', file=sys.stderr, flush=True)
                 raise
         old_mode = self.mode
         if 'y' in down:

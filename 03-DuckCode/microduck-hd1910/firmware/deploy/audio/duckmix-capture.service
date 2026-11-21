@@ -1,0 +1,13 @@
+[Unit]
+Description=MicroDuck OPi mic capture (MIC2R, AHUB 2x fix)
+After=sound.target aic3104-init.service
+Wants=aic3104-init.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/duckmix-capture.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

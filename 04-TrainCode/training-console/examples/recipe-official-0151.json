@@ -5,7 +5,7 @@
   "purpose": "sim2real",
   "overrides": [],
   "robot": {
-    "servo_mass_model": "hd1910_battery150_v1"
+    "servo_mass_model": "hd1910_battery100_v1"
   },
   "calibration": {
     "data": {
@@ -167,7 +167,7 @@
       "environment_rechecked": false
     }
   },
-  "notes": "官方0.15.1对应训练流程；HD1910、官方骨架和820g适配。标定只作部署快照，不改变训练机械零位。",
+  "notes": "官方0.15.1对应训练流程；HD1910、官方骨架和电池100g/整机800g适配。标定只作部署快照，不改变训练机械零位。",
   "version": 1,
   "task_overrides": {},
   "training_action_scale": 1.0,

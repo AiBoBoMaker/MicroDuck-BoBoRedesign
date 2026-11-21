@@ -13,9 +13,11 @@ import {loopHz} from './metrics.js';
 import {historyFrame} from './history-frame.js';
 import {RawTelemetry} from './raw-telemetry.js';
 import {CalibrationViewPanel} from './calibration-view.js';
+import {PoseSnapshotPanel} from './pose-snapshot.js';
 import {connectionNotice} from './startup-status.js';
 import {demoRequested, startDemo} from './demo.js';
 let rawTelemetry;
+let poseSnapshot;
 
 const $=id=>document.getElementById(id);
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -112,6 +114,7 @@ function render(s,addHistory=true){
   text('hud-yaw',`${fmt(radians(ss?duck?.displayYaw:null))}°`);
   $('hud-yaw').title=`相对画面初始朝向；原始航向 ${fmt(radians(st.odom?.yaw))}°`;
   renderTof(s);renderSystem(s,sy);renderMotors(s);renderDiagnostics(s);drawHistory();
+  poseSnapshot?.onSnapshot();
   if(!$('raw-json').hidden&&(!render.rawAt||Date.now()-render.rawAt>=300)){render.rawAt=Date.now();text('raw-json',JSON.stringify(s,null,2));}
   const cb=$('connection-banner');
   window.__boboPaint?.(s);
@@ -207,11 +210,17 @@ function renderMotors(s){
     const savedLimits=s.mode==='service'?`<td class="saved-limit">${saved?referenceAngle(radians(cal.min_rad),2):'—'}</td><td class="saved-limit">${saved?referenceAngle(radians(cal.max_rad),2):'—'}</td>`:'';
     const direction=s.mode==='service'?jointDirection(s,r):null;
     const directionCell=direction?`<td class="saved-direction" title="${escape(direction.title)}">${escape(direction.label)}</td>`:'';
-    return `<tr data-id="${escape(r.id)}" class="${r.id===selectedId?'selected':''} ${live?'':'old-sample'}" tabindex="0" title="${escape(r.source)}；${live?'有效样本':'非实时样本'}；${escape(r.error||'')}"><td><span class="servo-id">${escape(r.id)}</span><span class="servo-name">${escape(r.label)}</span></td><td><span class="status-text ${live?'':r.status==='error'?'error':'unknown'}">${escape(statusNames[r.status]||'未知')}</span></td>${directionCell}${s.mode==='service'?`<td>${cell('position_raw',0)}</td>`:''}<td>${cell('angle_deg')}${s.mode==='service'&&!r.calibrated?'<small class="muted"> 未标定</small>':''}</td>${officialReference}${savedLimits}<td class="target-angle">${cell('target_deg')}</td><td class="${Math.abs(r.error_deg)>5?'data-warn':''}">${cell('error_deg',2)}</td><td>${cell(rawMode?'speed_raw':'velocity_rpm',rawMode?0:2)}</td><td>${cell(rawMode?'current_raw':'current_ma',0)}</td><td>${cell('temperature_c')}</td><td>${cell('voltage_v',2)}</td>${s.mode==='service'?'':`<td>${cell('current_ratio_percent')}</td><td>${cell('pwm_percent')}</td>`}<td class="${r.hardware_error?'data-warn':''}">${s.mode==='service'?torque:`${torque} / ${fault}`}</td></tr>`;
+    const commissioning=s.mode==='service'&&s.bus?.mode==='commissioning';
+    const angleCell=commissioning
+      ?(finite(r.saved_angle_deg)?`${fmt(r.saved_angle_deg)}<small class="muted" title="按已存标定文件换算，不是实物角；勿填入已知角度"> 已存换算</small>`:'—')
+      :`${cell('angle_deg')}${s.mode==='service'&&!r.calibrated?'<small class="muted"> 未标定</small>':''}`;
+    return `<tr data-id="${escape(r.id)}" class="${r.id===selectedId?'selected':''} ${live?'':'old-sample'}" tabindex="0" title="${escape(r.source)}；${live?'有效样本':'非实时样本'}；${escape(r.error||'')}"><td><span class="servo-id">${escape(r.id)}</span><span class="servo-name">${escape(r.label)}</span></td><td><span class="status-text ${live?'':r.status==='error'?'error':'unknown'}">${escape(statusNames[r.status]||'未知')}</span></td>${directionCell}${s.mode==='service'?`<td>${cell('position_raw',0)}</td>`:''}<td>${angleCell}</td>${officialReference}${savedLimits}<td class="target-angle">${commissioning?(finite(r.saved_target_deg)?fmt(r.saved_target_deg):'—'):cell('target_deg')}</td><td class="${Math.abs(r.error_deg)>5?'data-warn':''}">${commissioning?'—':cell('error_deg',2)}</td><td>${cell(rawMode?'speed_raw':'velocity_rpm',rawMode?0:2)}</td><td>${cell(rawMode?'current_raw':'current_ma',0)}</td><td>${cell('temperature_c')}</td><td>${cell('voltage_v',2)}</td>${s.mode==='service'?'':`<td>${cell('current_ratio_percent')}</td><td>${cell('pwm_percent')}</td>`}<td class="${r.hardware_error?'data-warn':''}">${s.mode==='service'?torque:`${torque} / ${fault}`}</td></tr>`;
   }).join('')||`<tr><td colspan="${s.mode==='service'?17:12}" class="muted">无匹配关节</td></tr>`);
   const chosen=s.servos.find(r=>r.id===selectedId);
   if(chosen){text('selected-joint',`${chosen.label} · ID ${chosen.id}`);text('joint-extra',chosen.model_number?`型号 ${chosen.model_number} · 固件 ${chosen.firmware??'—'} · PID ${chosen.p_gain??'—'}/${chosen.i_gain??'—'}/${chosen.d_gain??'—'} · Homing Offset ${chosen.homing_offset??'—'} · Current Limit ${chosen.current_limit_ma??'—'} mA`:`${chosen.name} · ${chosen.source} · 电流 ${chosen.current_source||'未导出'}`);}
-  if(s.mode==='service'&&chosen)text('joint-extra',`${chosen.calibrated?'已标定关节反馈':'尚未标定 · 编码器反馈'} · 最近 60 秒`);
+  if(s.mode==='service'&&chosen)text('joint-extra',s.bus?.mode==='commissioning'
+    ?`编码器反馈 · 角度列为已存文件换算（非实物角） · 最近 60 秒`
+    :`${chosen.calibrated?'已标定关节反馈':'尚未标定 · 编码器反馈'} · 最近 60 秒`);
   const registers=[['model_number','型号编号'],['firmware','固件版本'],['configured_id','寄存器 ID'],['baud_code','波特率代码'],['return_delay','返回延迟原值 (2 μs)'],['drive_mode','Drive Mode'],['operating_mode','Operating Mode'],['homing_offset','零位偏移 / counts'],['position_raw','反馈位置 / counts'],['goal_position_raw','目标位置 / counts'],['current_limit_ma','电流限值 / mA'],['pwm_limit','PWM 限值原值'],['velocity_limit_rpm','速度限值 / rpm'],['voltage_min_v','最低电压限值 / V'],['voltage_max_v','最高电压限值 / V'],['temperature_limit_c','温度限值 / °C'],['p_gain','位置 P'],['i_gain','位置 I'],['d_gain','位置 D'],['goal_current_ma','目标电流 / mA'],['goal_velocity_rpm','目标速度 / rpm'],['goal_pwm','目标 PWM 原值'],['profile_acceleration_raw','轮廓加速度原值'],['profile_velocity_raw','轮廓速度原值'],['bus_watchdog','Bus Watchdog 原值'],['realtime_tick_ms','舵机 tick / ms'],['moving','Moving 标记'],['moving_status','Moving Status 原值'],['hardware_error','Hardware Error 位域']];
   if(s.mode==='service')registers.unshift(['speed_raw','速度原始计数'],['load_raw','负载原始计数'],['current_raw','电流原始计数']);
   const shownRegisters=s.mode==='service'?registers.filter(([key])=>['goal_position_raw','speed_raw','load_raw','current_raw','moving'].includes(key)):registers;
@@ -305,7 +314,9 @@ async function poll(){
   }finally{polling=false;setTimeout(poll,100);}
 }
 async function init(){
-  const r=await fetch('/api/config');cfg=await r.json();text('console-version',`Console v${cfg.version} · 本地运行`);controls=new ControlPanel(cfg,$('control-panel'));servicePanel=new ServicePanel(cfg,choose);mountBoBoMaker();new SystemLogPanel();document.querySelector('main footer').before($('diagnostics'));refreshCameraAddress();text('settings-mode',cfg.mode);
+  const r=await fetch('/api/config');cfg=await r.json();window.__boboConfig=cfg;text('console-version',`Console v${cfg.version} · 本地运行`);controls=new ControlPanel(cfg,$('control-panel'));servicePanel=new ServicePanel(cfg,choose);mountBoBoMaker();new SystemLogPanel();
+  poseSnapshot=new PoseSnapshotPanel({getSnapshot:()=>shown||latest,getConfig:()=>cfg,notify});
+  document.querySelector('main footer').before($('diagnostics'));refreshCameraAddress();text('settings-mode',cfg.mode);
   sshConnection=new SSHConnection(cfg,()=>{
     controls.suspend();controls.connected=false;controls.linkEpoch++;controls.socket.close();
     controls.options={...controls.options,offline:true};camera.disconnect();

@@ -74,5 +74,24 @@ class ParseTests(unittest.TestCase):
         self.assertIsNone(MOD.chip_from_detect("gpiochip0 [gpio0] (32 lines)\n"))
 
 
+class HomeWifiTests(unittest.TestCase):
+    def test_empty_means_no_home_wifi(self):
+        self.assertFalse(MOD.has_home_wifi(""))
+
+    def test_ap_profile_is_not_home_wifi(self):
+        text = "microduck-provision:802-11-wireless:ap\n"
+        self.assertFalse(MOD.has_home_wifi(text))
+
+    def test_infrastructure_counts(self):
+        text = (
+            "microduck-provision:802-11-wireless:ap\n"
+            "Home:802-11-wireless:infrastructure\n"
+        )
+        self.assertTrue(MOD.has_home_wifi(text))
+
+    def test_ethernet_alone_is_not_home_wifi(self):
+        self.assertFalse(MOD.has_home_wifi("Wired:802-3-ethernet:\n"))
+
+
 if __name__ == "__main__":
     unittest.main()

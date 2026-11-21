@@ -501,6 +501,7 @@ version = "0.15.1"
 dependencies = [
  "futures-util",
  "opus-rs",
+ "reqwest",
  "serde",
  "serde_json",
  "tokio",

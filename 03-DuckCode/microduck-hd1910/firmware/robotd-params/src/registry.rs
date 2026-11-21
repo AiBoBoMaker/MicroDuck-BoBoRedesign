@@ -417,6 +417,11 @@ pub const REGISTRY: &[Entry] = &[
         "The voice and the microphone; off walks identically and stays quiet",
     ),
     entry("audio.device", Kind::Text, "ALSA playback device"),
+    entry(
+        "audio.capture_pcm",
+        Kind::Text,
+        "Optional capture PCM (e.g. duckmix_cap); unset derives from audio.device",
+    ),
     entry("audio.bank", Kind::Text, "Voice bank directory"),
     feature(
         "audio.greet",
@@ -452,7 +457,7 @@ pub const REGISTRY: &[Entry] = &[
     entry(
         "bobo.url",
         Kind::Text,
-        "Voice server WebSocket URL, ws:// or wss://",
+        "Voice ws(s):// URL, or http(s):// OTA URL that returns websocket.url",
     ),
     entry(
         "bobo.token",
@@ -464,6 +469,18 @@ pub const REGISTRY: &[Entry] = &[
         Kind::Text,
         "File that keeps this duck's bobo client UUID",
     ),
+    entry(
+        "bobo.expression",
+        Kind::Bool,
+        "While speaking, map llm.emotion to sparse head motion",
+    ),
+    entry(
+        "bobo.expression_amp",
+        Kind::Float,
+        "Head expression amplitude scale (1.0 = designed; 0 = off; max 2.0, clamped per-axis to ±0.18 rad)",
+    ),
+    // Keyword rows live as [[bobo.keyword]] tables (match + action); edited via console UI
+    // or /var/lib/robot/bobo-keywords.json rather than robotctl configure scalars.
     // ── [media] ──────────────────────────────────────────────────────────────
     feature(
         "media.source",

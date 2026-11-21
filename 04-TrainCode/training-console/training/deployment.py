@@ -28,7 +28,7 @@ PUBLISHED_ROLLER_PRESETS = {
     'roller': {'filename': 'roller.onnx', 'action_scale': 0.8, 'head_lowpass': 0.5, 'legs_lowpass': 0.7},
     'crouch': {'filename': 'roller_crouch.onnx', 'action_scale': 0.8, 'head_lowpass': 0.5, 'legs_lowpass': 0.7},
 }
-PHASE_ROLES = ('ground_pick', 'crouch', 'spin')
+PHASE_ROLES = ('ground_pick', 'crouch', 'spin', 'splits')
 SKILL_WINDOWS = {'roulade': 1.0, 'kick_left': 0.5, 'kick_right': 0.5, 'kick_flourish': FLOURISH_SKILL_S}
 # Frozen R148 official-adapter task gate; graph, hardware and model checks still apply.
 R148_TASKS = frozenset((
@@ -47,7 +47,7 @@ def _callable_name(value):
 def _command_contract(role, env):
     """Describe actual command meanings, not merely a 61-element tensor shape."""
     terms = env['observations']['actor']['terms']
-    if role in ROLLER_ROLES or role == 'ground_pick':
+    if role in ROLLER_ROLES or role in PHASE_ROLES:
         for name, dim in (('head_command', 4), ('body_command', 6)):
             term = terms[name]
             expected_live = role == 'swizzle' and name == 'head_command'
@@ -196,7 +196,7 @@ def deployment_contract(request, resolved):
     role = info['role']
     slot = {'walk': 'walk', 'joint': 'walk', 'stand': None, 'roller': 'walk',
             'swizzle': 'walk', 'slope': 'walk', 'roller_stand': None,
-            'crouch': 'ground_pick', 'spin': 'ground_pick'}.get(role, role)
+            'crouch': 'ground_pick', 'spin': 'ground_pick', 'splits': 'ground_pick'}.get(role, role)
     command = _command_contract(role, env)
     filter_state = action_filter.describe(action, hz)
     published = PUBLISHED_ROLLER_PRESETS.get(role) if abs(float(scale) - 1.0) < 1e-9 else None

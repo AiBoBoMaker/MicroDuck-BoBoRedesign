@@ -25,10 +25,11 @@
 
 - 提供 **XL330-M288-T**（原版 Dynamixel 舵机）和 **HD-1910-C001**（飞特舵机）两套外壳方案；
 - 提供 Radxa ZERO 3W 的 HAT 驱动板与 IMU 模块（IMU 挂在舵机总线上，含 imu_to_dxl 与 imu_to_feetech 适配）；
-- 提供基于官方 0.15.1 与 kissqy 飞特方案的机器人固件、机器人中控和训练中控；
-- 提供采购清单（BOM）、舵机调试工具与主板资料。
+- 提供基于官方 0.15.1 与 kissqy 飞特方案的机器人固件、机器人中控、手机中控 APK 骨架和训练中控；
+- 提供 BoBo 云端语音对话（OTA/WebSocket）、表情驱动头部动作与 STT 关键词触发；
+- 提供采购清单（BOM）、舵机调试工具与主板资料（含 Orange Pi 资料）。
 
-> **当前状态：** HD-1910-C001 外壳已实际打印装配验证；HAT 驱动板 Rev.A、IMU 板（imu_to_dxl）已更新；固件与中控为 R17 V167（console 1.0.167）+ control.43。训练中控已独立到 `04-TrainCode/training-console/`。
+> **当前状态：** HD-1910-C001 外壳已实际打印装配验证；主控支持 **Radxa ZERO 3W** 与 **Orange Pi Zero 2W**；固件与中控为 R17 V167（console 1.0.167）+ control.43，干净板可用 **R18** 安装包；BoBo 语音对话（R3/菜单键）、说话时头部表情幅度与关键词动作已接入中控；训练中控在 `04-TrainCode/training-console/`，含竖叉（splits）等任务。
 
 ## 项目目标
 
@@ -60,9 +61,9 @@ MicroDuck-BoBoRedesign/
 |------|--------|----------|
 | `01-3DPrint` | 两套外壳 STL：`01-XL330-M288-T/`（原版舵机）、`02-HD-1910-C001/`（飞特舵机）；另有 `0位支架.stp` | `01-3DPrint/02-HD-1910-C001/README.md` |
 | `02-PCB` | `01-IMU/`（IMU 板工程与固件）、`02-HAT/`（HAT 驱动板工程） | `02-PCB/01-IMU/README.md`、`02-PCB/02-HAT/README.md` |
-| `03-DuckCode` | `microduck-hd1910/`：Rust 机器人固件、Python 机器人中控及许可证 | `03-DuckCode/microduck-hd1910/README.md` |
-| `04-TrainCode` | `training-console/`：Python 训练中控（R1.5.27） | `04-TrainCode/training-console/README.md` |
-| `05-BOM` | `MicroDuck购买清单.md`、`01-主板资料整理/`、`02-飞特舵机/` | `05-BOM/MicroDuck购买清单.md` |
+| `03-DuckCode` | `microduck-hd1910/`：Rust 固件、Python 中控、`console-apk/` 手机中控 | `03-DuckCode/microduck-hd1910/README.md`、`firmware/R18-使用方法.md` |
+| `04-TrainCode` | `training-console/`：Python 训练中控（含竖叉 splits 等任务） | `04-TrainCode/training-console/README.md` |
+| `05-BOM` | 采购清单、`01-主板资料整理/01-radxa` 与 `02-orangepi`、飞特舵机资料 | `05-BOM/MicroDuck购买清单.md` |
 | `06-tools` | `02-feite/`：飞特调试工具、CH340 驱动、HD-1910 手册；`01-XL330-M288-T/` 为空 | `06-tools/02-feite/` |
 | `assets` | `logo.jpg`（文档抬头图）、`wechat.jpg` | — |
 
@@ -94,26 +95,30 @@ MicroDuck-BoBoRedesign/
 
 ### 03-DuckCode —— 固件与中控
 
-目前只有 **`microduck-hd1910/`** 一个子项目：基于 Microduck 官方 0.15.1 的飞特 HD1910 适配，参考硬件为 Radxa ZERO 3W + 15 个 HD1910 舵机。
+目前只有 **`microduck-hd1910/`** 一个子项目：基于 Microduck 官方 0.15.1 的飞特 HD1910 适配。参考硬件为 **Radxa ZERO 3W** 或 **Orange Pi Zero 2W** + 15 个 HD1910 舵机。
 
 | 组成 | 内容 | 入口 |
 |------|------|------|
-| `firmware/` | Rust workspace，含 `robotd`（控制循环）、`robotctl`、`padd`、`console`、`configd`、`btd`、`policies`、`kinematics`、`odometry`、`tof` 等 crate，以及 `Cargo.toml`、`rust-toolchain.toml` | `firmware/console/start.cmd` / `start.command`（中控） |
+| `firmware/` | Rust workspace：`robotd`、`bobo`（语音）、`padd`、`console`、`configd`、`btd`、`mediad`、`tofd`、`updaterd` 等 | `firmware/console/start.cmd` / `start.command` |
+| `firmware/bobo/` | BoBo 语音客户端：OTA/WebSocket、说话时头部表情、STT 关键词 → 预设/模型动作 | 中控「BoBo 语音」面板；`[bobo]` 写在 `/etc/robot/robotd.toml` |
+| `console-apk/` | Flutter 手机中控：内嵌桌面 console + 蓝牙 HID 手柄（GameSir-Nova 2 Lite） | `console-apk/README.md` |
 | `tools/` | 本地编译脚本 | `tools/build-firmware.sh` |
 | `LICENSES/` | `Apache-2.0.txt`、`Personal-NonCommercial.txt` | — |
 
-关键文件：
+**BoBo 语音（近期重点）：**
 
-- 版本与构建：`firmware/BUILD.json`、`firmware/BUILDING-V167.md`（R17 V167 / control.43 构建说明）；
-- 打包脚本：`firmware/prepare-V167.py`、`firmware/build-V167.sh`、`firmware/package-V167.py`；
-- 预置策略：`firmware/policies/`（`stand`、`walk`、`sitstand`、`kick_left`、`roulade`、`ground_pick`）；
-- 更新包：`firmware/console/updates/`（与 `02-PCB/01-IMU/firmware/` 中的 IMU 固件为同名同大小文件）。
+- R3 / 菜单键（及网页手柄 R3）接通/挂断；接通成功有两声提示音。
+- 说话时按 `llm.emotion` 做稀疏头部动作；中控可调幅度（0–200%，单轴硬限位 ±0.18 rad）。
+- 关键词表可在中控编辑，热更新到 `/var/lib/robot/bobo-keywords.json`（无需重启 `robotd`）。
+- Orange Pi 音频走 AIC3104 + duckmix；通话结束会恢复声卡，避免 LT/RT 叫声失效。
 
-编译固件需要 Linux/WSL2、Rust 1.99、cargo-zigbuild 0.23.4、Zig 0.15.1、Python 3 与 libudev 开发库。**日常使用不需要自己编译**，可直接使用仓库中的固件包与中控。
+**R18 干净板安装：**
 
-> 版本说明：R17 V167（中控 `1.0.167`）是当前中控与配套固件的版本。`firmware/` 下的 `install-R18.sh`、`pack-R18.sh`、`R18-使用方法.md` 是**干净板安装包**（`Microduck-R18.zip`）的安装/打包文件及说明，不代表中控已升级到 R18；中控版本以 `firmware/console/release_identity.py` 的 `CONSOLE_VERSION = '1.0.167'` 为准。
+- 打包：`firmware/pack-R18.bat`（WSL）/ `pack-R18.sh` → 生成 `Microduck-R18.zip`（大文件不入库，需本地打包）。
+- 仅重编 `robotd`：`firmware/build-robotd-only.bat`。
+- 安装说明：`firmware/R18-使用方法.md`、`firmware/R18-TF卡安装.md`（含 Orange Pi UART0 / AHUB / Wi‑Fi 踩坑）。
 
-> 说明：该子项目的 README 引用了 `release-assets/`、`hardware/` 与 `docs/BUILD.md`，这些路径当前未随仓库提供；系统镜像与中控 ZIP 需按该 README 中的下载链接获取。
+> 版本说明：中控仍为 R17 V167（`CONSOLE_VERSION = '1.0.167'`）。R18 指干净板安装包与板端脚本，不等于中控大版本号升到 R18。
 
 ### 04-TrainCode —— 训练中控
 
@@ -123,9 +128,9 @@ MicroDuck-BoBoRedesign/
 |------|------|------|
 | `training-console/` | `studio.py`、`training_console.py`、`training/`（训练调度、模型导入、部署、SSH 等） | `training-console/start-training.cmd` / `start-training.command` |
 
-- 配套固件为 0.15.1，骨架为官方骨架 + HD1910；当前提供 14 类动作、35 种任务配方。
+- 配套固件为 0.15.1，骨架为官方骨架 + HD1910；含行走、起坐、捡物、滚翻、踢球等，并增加**竖叉（splits）**等任务配方与部署槽位。
 - 运行中控页面的电脑需要 Python 3.10 或以上；训练本身需要 NVIDIA GPU + Linux/WSL2（或通过 SSH 连接训练服务器）。
-- 训练中控不是机器人固件，不刷写 ZERO、不直接控制舵机；导出策略后部署到机器人的 `policies/` 由 `robotd` 加载。
+- 训练中控不是机器人固件，不刷写板子、不直接控制舵机；导出策略后部署到机器人的 `policies/` 由 `robotd` 加载。
 - 详细规则见 `training-console/README.zh-CN.md`。
 
 ```
@@ -141,7 +146,7 @@ MicroDuck-BoBoRedesign/
 ### 05-BOM —— 采购清单与硬件资料
 
 - **`MicroDuck购买清单.md`** —— 逐项列出主板、舵机、TF 卡、驱动板、IMU、轴承、螺丝、摄像头、ToF、扬声器、手柄、电池、舵机线的型号、记录价格与购买链接；舵机分 XL330 与 HD1910 二选一。价格为文档内记录价（最近更新 2026-09-23），下单前请以商品页为准。
-- **`01-主板资料整理/`** —— Radxa ZERO 3W 原理图（`radxa_zero_3w_v1.12_schematic.pdf`）、40pin 引脚说明（`40pin引脚说明.png`）、`radxa_zero_3w_v1110_smb.zip`；`1.12j版本硬件的固件安装步骤/` 目前为空。
+- **`01-主板资料整理/`** —— 按板子分子目录：`01-radxa/`（ZERO 3W 原理图、40pin、smb 包）、`02-orangepi/`（Orange Pi Zero 2W 相关资料）。
 - **`02-飞特舵机/`** —— HD-1910 舵机手册 `HD-1910..07.pdf`。
 
 ### 06-tools —— 调试工具
@@ -167,20 +172,20 @@ MicroDuck-BoBoRedesign/
         │                      │                        │
         └──────────装配────────┴────────────────────────┘
                                ▼
-                 03-DuckCode 固件（跑在 ZERO 3W 上）
-                 robotd 控制 15 个舵机 + 读取 IMU
+                 03-DuckCode 固件（跑在 ZERO 3W / OPi Zero 2W 上）
+                 robotd + bobo 语音；控制 15 舵机 + IMU + 音频
                                │
-                     ┌─────────┴─────────┐
-                     ▼                   ▼
-              机器人中控 console     04-TrainCode 训练中控
-              （电脑/手机 SSH）      （训练并部署新策略）
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+       机器人中控 console   console-apk     04-TrainCode 训练中控
+       （电脑浏览器 SSH）   （手机）        （训练并部署新策略）
 ```
 
 - 外壳与舵机型号强绑定：`01-XL330-M288-T` 配 XL330，`02-HD-1910-C001` 配 HD-1910-C001。
-- HAT 是 Radxa ZERO 3W 的扩展板，负责舵机总线与供电；IMU 板挂在同一条总线上，按总线设备被固件读取（工程含 imu_to_dxl 与 imu_to_feetech 两种适配）。
-- 固件运行在 ZERO 3W 上；中控是运行在电脑/手机上的操作界面，通过 SSH 连接机器人，本身不控制舵机。
-- 训练中控产出策略模型，部署到机器人的 `policies/` 后由 `robotd` 加载。
-- `06-tools` 用于舵机 ID/零点/限位调试和串口驱动安装，属于装配与标定阶段的辅助工具。
+- HAT 负责舵机总线与供电；IMU 挂在同一条总线上（imu_to_dxl / imu_to_feetech）。
+- 固件跑在板子上；中控通过 SSH 连机器人；BoBo 语音走云端，板端 `[bobo]` + `[audio]` 需开启。
+- 训练中控产出策略，部署到 `policies/` 后由 `robotd` 加载。
+- `06-tools` 用于舵机 ID/零点/限位与串口驱动，属装配标定阶段工具。
 
 ## 根目录文件说明
 
@@ -207,9 +212,9 @@ MicroDuck-BoBoRedesign/
 3. **打板与贴片** —— 用嘉立创 EDA 专业版打开 `02-PCB/01-IMU/`、`02-PCB/02-HAT/` 下的 `.epro2` 工程下单。
 4. **烧录 IMU** —— 使用 `02-PCB/01-IMU/firmware/imu_to_feetech_ReVA_FT6_SYNC15_UART_IRQ_v1.bin` 烧录 IMU 固件。
 5. **装配** —— 装舵机、HAT、IMU、电池与外壳；用 `06-tools/02-feite/` 中的调试工具设置舵机 ID 与零点。
-6. **准备系统与固件** —— 按 `03-DuckCode/microduck-hd1910/README.md` 下载系统镜像并刷入 TF 卡；已有系统可在中控中安装随包固件。
-7. **调试运行** —— 启动 `03-DuckCode/microduck-hd1910/firmware/console/start.cmd`（macOS/Linux 用 `start.command`），填写 `用户名@机器人IP` 与 SSH 信息，按 **HOME → 保持 → 行走** 操作。
-8. **训练（可选）** —— 启动 `04-TrainCode/training-console/start-training.cmd`（或 `start-training.command`），训练完成后部署策略。
+6. **准备系统与固件** —— 干净板用 R18（见 `firmware/R18-TF卡安装.md` / `R18-使用方法.md`）；已有系统可在中控升级或 `build-robotd-only` 热换 `robotd`。
+7. **调试运行** —— 启动 `firmware/console/start.cmd`（或 `start.command`），填写 `用户名@机器人IP`，按 **HOME → 保持 → 行走**；BoBo 需在 `robotd.toml` 打开 `[bobo]`/`[audio]`，用 R3 或网页 R3 接通。
+8. **训练（可选）** —— 启动 `04-TrainCode/training-console/start-training.cmd`，训练完成后部署策略（含竖叉等新任务）。
 
 > 每台机器人都需要核对自己的关节零位、方向、限位与 IMU，不能直接套用他人的标定结果。
 
@@ -217,13 +222,15 @@ MicroDuck-BoBoRedesign/
 
 | 项目 | 当前版本 / 型号 | 位置 |
 |------|------------------|------|
-| 机器人固件 | 官方 0.15.1 · control.43 · API40 | `03-DuckCode/microduck-hd1910/firmware/` |
-| 机器人中控 | R17 V167（1.0.167） | `03-DuckCode/microduck-hd1910/firmware/console/` |
-| 训练中控 | R1.5.27 | `04-TrainCode/training-console/` |
+| 机器人固件 | 官方 0.15.1 · control.43 · API40 · BoBo 语音 | `03-DuckCode/microduck-hd1910/firmware/` |
+| 干净板安装 | R18（`pack-R18` / `install-R18.sh`） | `firmware/R18-使用方法.md` |
+| 机器人中控 | R17 V167（1.0.167）+ BoBo 面板 | `firmware/console/` |
+| 手机中控 | Flutter `console-apk` | `03-DuckCode/microduck-hd1910/console-apk/` |
+| 训练中控 | R1.5.27 + splits 等任务 | `04-TrainCode/training-console/` |
 | HAT 驱动板 | Rev.A（2026-10-15） | `02-PCB/02-HAT/` |
 | IMU 模块 | imu_to_dxl（2026-10-15） | `02-PCB/01-IMU/` |
 | 外壳 | XL330 版 / HD-1910 版 | `01-3DPrint/` |
-| 主控 | Radxa ZERO 3W（2G，无 eMMC） | 见 `05-BOM/MicroDuck购买清单.md` |
+| 主控 | Radxa ZERO 3W 或 Orange Pi Zero 2W | `05-BOM/` |
 
 ## 致谢
 

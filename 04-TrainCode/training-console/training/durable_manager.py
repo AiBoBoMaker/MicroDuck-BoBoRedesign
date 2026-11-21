@@ -13,7 +13,7 @@ def monitor_payload(job, create=False):
     request={'id':job['id'],'offset':job.get('durable_offset',0)}
     if create:
         names=('runtime_adapter.py','recovery_evaluation.py','target_limit_profile.py','target_limit_actions.py','limit_comparison_request.py','recorded_start.py','limit_comparison.py','sample_alignment.py','checkpoint_policy.py','live_view.py','event_protocol.py',
-               'sim_protocol.py','recipe.py','config_audit.py','official_spec.py','official_adapter.py','hd1910_actuator.py','hd1910_m6.json','deployment.py','action_filter.py','filtered_actions.py')
+               'sim_protocol.py','recipe.py','config_audit.py','official_spec.py','official_adapter.py','splits_task.py','hd1910_actuator.py','hd1910_m6.json','deployment.py','action_filter.py','filtered_actions.py')
         bundle={name:(ROOT/name).read_text(encoding='utf-8') for name in names}
         request['source']=('WORKER_REQUEST = '+repr(job['request'])+'\nWORKER_BUNDLE = '+repr(bundle)+'\n'
                            +(ROOT/'worker.py').read_text(encoding='utf-8'))

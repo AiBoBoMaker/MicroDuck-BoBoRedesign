@@ -983,7 +983,7 @@ impl Calibration {
         self.validate()?;
         if !self.motion_enabled {
             return Err(error(
-                "Feetech motion_enabled is false; complete commissioning first",
+                "Feetech motion_enabled is false; finish commissioning, then switch the service to motion mode",
             ));
         }
         self.validate_motion_fields()
@@ -1363,6 +1363,11 @@ impl FeetechIo {
 impl FeetechIo {
     /// Optional temporary test settings, kept outside the official pad config.
     fn joint_holding(&self, i: usize, now: Instant) -> bool {
+        // Mouth (servo 34) is driven by voice amplitude / LT — never freeze it on a
+        // stale sample, or TTS beak motion is overwritten every tick.
+        if i == crate::model::MOUTH_INDEX {
+            return false;
+        }
         self.joint_feedback[i].as_ref().is_some_and(|previous| {
             self.joint_missing[i] > JOINT_COAST_TICKS
                 || now.saturating_duration_since(previous.at) > JOINT_COAST_MAX_AGE

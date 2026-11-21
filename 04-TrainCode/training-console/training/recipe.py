@@ -20,7 +20,7 @@ SERVO_MASS_PROFILE = {
 
 
 # Separate identity preserves historical run physics and calibration snapshots.
-# 820 g stays replayable. New training uses the 150 g battery on the same bare machine.
+# 820 g / 150 g battery stay replayable. New training uses the 100 g / 800 g closure.
 MASS_CLOSURE_PROFILES = {
     'hd1910_820g_v1': {
         'key': 'hd1910_820g_v1', 'target_g': 820.0, 'battery_g': 86.0, 'bare_machine_g': 734.0,
@@ -38,8 +38,20 @@ MASS_CLOSURE_PROFILES = {
         'rear_mass_point_m': [-0.0359693, 0.0, -0.00385049],
         'source': '用户2026-11-03：电池由86g改为150g。裸机734g不变，多出的64g放在官方NP-F970电池安装点，躯干重心因此后移；820g配方的躯干余量仍在原重心。头部原有3g保留。整机884g。',
     },
+    'hd1910_battery100_v1': {
+        'key': 'hd1910_battery100_v1', 'target_g': 800.0, 'battery_g': 100.0, 'bare_machine_g': 700.0,
+        'title': '官方骨架 + HD1910 · 电池100g / 整机800g',
+        # Servo-upgraded baseline is 812.24318 g; head keeps +3 g; trunk takes the −15.24318 g
+        # net so the compiled total is 800 g. The +14 g battery delta vs the old 86 g account
+        # still sits at the official NP-F970 mount for COM, same point as the 150 g recipe.
+        'body_additions_g': {'jaw_soft': 3.0, 'trunk_base': -15.24318},
+        'rear_mass_body': 'trunk_base', 'rear_mass_g': 14.0,
+        'rear_mass_point_m': [-0.0359693, 0.0, -0.00385049],
+        'source': '用户2026-11-14：实称电池100g、整机约800g（裸机700g）。相对820g配方整机轻20g；头部原有3g保留，差额从躯干扣除；相对旧86g电池多出的14g放在官方NP-F970安装点。',
+    },
 }
-MASS_CLOSURE_PROFILE = MASS_CLOSURE_PROFILES['hd1910_battery150_v1']
+MASS_CLOSURE_PROFILE = MASS_CLOSURE_PROFILES['hd1910_battery100_v1']
+_LEGACY_BATTERY_MODELS = frozenset({'hd1910_820g_v1', 'hd1910_battery150_v1'})
 
 
 def validate_servo_mass(changes, baseline=None):
@@ -54,9 +66,9 @@ def validate_servo_mass(changes, baseline=None):
 
 
 def migrate_battery_mass(recipe):
-    """Move an untouched 820 g recipe onto the 150 g battery. Manual body masses stay put."""
+    """Move an untouched legacy mass recipe onto the 100 g / 800 g battery. Manual body masses stay put."""
     robot = recipe.get('robot')
-    if not isinstance(robot, dict) or robot.get('servo_mass_model') != 'hd1910_820g_v1':
+    if not isinstance(robot, dict) or robot.get('servo_mass_model') not in _LEGACY_BATTERY_MODELS:
         return False
     bodies = robot.get('bodies') or {}
     if any(isinstance(patch, dict) and 'mass' in patch for patch in bodies.values()):

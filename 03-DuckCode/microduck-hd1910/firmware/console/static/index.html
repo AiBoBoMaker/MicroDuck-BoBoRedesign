@@ -24,6 +24,7 @@ try{
   <nav aria-label="中控台导航">
     <a class="active" href="#overview"><span class="nav-icon">▦</span>总览<span class="nav-tag">LIVE</span></a>
     <a href="#control-panel"><span class="nav-icon">✥</span>鸭子控制</a>
+    <a href="#pose-snapshot"><span class="nav-icon">◎</span>关节角快照</a>
     <a href="#motors"><span class="nav-icon">◈</span>舵机诊断<span class="count">15</span></a>
     <a href="#sensors"><span class="nav-icon">⌁</span>传感器</a>
     <a href="#camera-panel"><span class="nav-icon">▣</span>摄像头</a>
@@ -87,12 +88,12 @@ try{
       <div class="panel-head"><div><span class="section-index">02</span><h2>模拟手柄</h2><span class="pad-official-tag">官方手柄接口</span><span id="control-status" class="badge neutral">等待服务</span></div></div>
       <div class="webpad-content"><div class="mode-management-anchor"></div><div class="pad-control-column"><div class="official-pad">
         <div class="pad-shoulders"><button data-trigger="lt" title="LT：按住长叫并张嘴">LT · 长叫</button><button data-trigger="rt" title="RT：按下短叫并张嘴">RT · 短叫</button><button data-button="rb" data-requires-slot="kick_right" data-unavailable="true" title="RB：右脚踢球；等待运行模型回读">RB · 右脚踢球</button></div>
-        <div class="pad-brand"><span>R17</span><small>模拟手柄 · 实体按键映射</small><button class="xbox-mark" data-button="guide" data-unavailable="true" title="官方 padd 未绑定 Guide">✥</button><i></i><button type="button" id="pad-help-open" class="pad-help-open" data-pad-help="open">按键说明</button></div><div class="xbox-body"><div class="pad-stick" data-stick="l" tabindex="0" role="group" aria-label="左摇杆"><i></i><span>左摇杆</span></div>
+        <div class="pad-brand"><span>R17</span><small>模拟手柄 · 实体按键映射</small><button class="xbox-mark" data-button="guide" title="菜单键：点击接通（绿灯），再点挂断并恢复鸭子自有语音">✥</button><i></i><button type="button" id="pad-help-open" class="pad-help-open" data-pad-help="open">按键说明</button></div><div class="xbox-body"><div class="pad-stick" data-stick="l" tabindex="0" role="group" aria-label="左摇杆"><i></i><span>左摇杆</span></div>
           <div class="pad-center"><button data-button="select" title="短按松开卸力；按住 2 秒坐下并关机">Select<small>卸力 / 关机</small></button><button data-button="start" title="首次回 HOME；之后启用或关闭策略">Start<small>回位 / 策略</small></button></div>
           <div class="pad-abxy"><button class="pad-y" data-button="y" title="头部模式">Y</button><button class="pad-x" data-button="x" data-requires-slot="roulade" data-unavailable="true" title="X：前滚翻 10000 轮；等待运行模型回读">X</button><button class="pad-b" data-button="b" title="身体姿态模式">B</button><button class="pad-a" data-button="a" data-requires-slot="ground_pick" data-unavailable="true" title="A：低头捡物；等待运行模型回读">A</button></div>
           <div class="pad-dpad"><button data-dpad="dy:-1" data-unavailable="true" title="本机未配置轮式模式">↑</button><button data-dpad="dx:-1" data-unavailable="true" title="官方未绑定此方向">←</button><button data-dpad="dx:1" data-unavailable="true" title="飞特后端不支持官方舵机重启指令">→</button><button data-dpad="dy:1" title="10000 轮起坐模型">↓</button></div>
           <div class="pad-stick" data-stick="r" tabindex="0" role="group" aria-label="右摇杆"><i></i><span>右摇杆</span></div>
-          <div class="pad-stick-clicks"><button data-button="ls" data-unavailable="true" title="仅实体手柄：滑轮模式且 IMU 确认倒地时，按 L3 测试起身 5 秒">L3</button><button data-button="rs" data-unavailable="true" title="官方未绑定右摇杆按压">R3</button><button data-pad-center>摇杆回中</button></div>
+          <div class="pad-stick-clicks"><button data-button="ls" data-unavailable="true" title="仅实体手柄：滑轮模式且 IMU 确认倒地时，按 L3 测试起身 5 秒">L3</button><button data-button="rs" title="R3：点击接通（绿灯），再点挂断并恢复鸭子自有语音">R3 · 对话</button><button data-pad-center>摇杆回中</button></div>
         </div>
       </div><div class="pad-sliders"><label>音量 <output id="control-volume-value">—</output><input id="control-volume" aria-label="音量" type="range" min="0" max="100" step="1" disabled></label><label>嘴巴最大开度 <output id="control-mouth-value">—</output><input id="control-mouth" aria-label="嘴巴最大开度" type="range" min="0" max="100" step="1" disabled></label><div class="pad-head-amplitude"><span>头部幅度</span><div role="group" aria-label="头部幅度"><button class="button" data-head-amplitude="2.5">官方 2.5 rad</button><button class="button" data-head-amplitude="1">1.0 rad</button><button class="button" data-head-amplitude="0.5">0.5 rad</button></div></div></div><div class="pad-status-row"><p id="control-audio-status" class="tiny muted" role="status">音量与手柄幅度等待实际回读。</p><p id="control-reason" class="tiny muted">网页手柄与真实手柄使用官方 padd</p><p id="control-link-latency" class="tiny muted">手柄长连接未就绪</p><p id="control-model" class="tiny muted">尚未确认运行模型</p></div><div id="control-feedback" class="panel-note service-job" role="status" aria-live="polite"></div></div><div class="pad-configuration-column"><div class="pad-model-parameters"><div class="model-management-anchor"></div><section class="runtime-parameters" aria-label="高级参数实际回读"><div class="parameter-heading"><strong>高级参数</strong><span id="parameter-status">等待实际回读</span></div><div class="parameter-grid">
 <div><span id="parameter-action-label">官方动作缩放</span><b id="parameter-action">—</b><small id="parameter-action-default">等待默认值 · 行走 / 保持</small></div>
@@ -102,12 +103,87 @@ try{
 <div><span>官方电压补偿</span><b id="parameter-voltage">—</b><small id="parameter-voltage-desc">等待开关与补偿系数回读</small></div>
 <div class="parameter-actual"><span>当前实际动作倍率</span><b id="parameter-actual">—</b><small id="parameter-actual-desc">基础倍率 × 电压补偿</small></div>
 </div><p id="control-readback" class="tiny muted">等待官方参数回读</p></section></div>
-<section class="pad-help" aria-label="中文按键说明"><button type="button" class="pad-help-close" aria-label="关闭按键说明">关闭</button><h3>中文按键说明</h3><div class="pad-help-grid"><div><b>Start</b><span>首次 HOME；后续启用 / 关闭策略（回 HOME）。</span></div><div><b>左摇杆</b><span>行走模式：前后走 / 左右侧移。</span></div><div><b>右摇杆</b><span>行走模式：左右转向，上下未绑定。</span></div><div><b>Y · 头部模式</b><span>Y 切换头部 / 行走。左杆俯仰、转头；右杆颈部、侧倾。头部模式速度归零。</span></div><div><b>B · 身体姿态</b><span>B 切换身体 / 行走。左杆高低；右杆俯仰、侧倾。身体模式速度归零。</span></div><div><b>方向键 ↓</b><span>10000 轮起坐：坐下 / 站起切换。</span></div><div><b>A · 低头捡物</b><span>内置捡物模型；策略启用后按一次，走官方相位流程，约 2.8 秒后回到走路模型。</span></div><div><b>X · 前滚翻</b><span>10000 轮前滚翻；启用策略后基准 1.00，按一次约 1 秒，按住连续翻滚。Walk 槽现为行走 / 起身联合模型。</span></div><div><b>左脚踢球</b><span>HOME 后启用策略，按 LB 执行 10000 轮左踢，0.5 秒单次动作，完成后回到行走模型。</span></div><div><b>右脚踢球</b><span>HOME 后启用策略，按 RB 或点击网页手柄的 RB 键。完成后回到行走模型。</span></div><div><b>LT / RT</b><span>LT 长叫，RT 短叫；扳机开嘴，松开闭嘴。嘴巴滑条限制网页及真实手柄的张嘴幅度，不缩放声音扳机、不主动开嘴。HOME 后可叫声张嘴。</span></div><div><b>Select</b><span>松开卸力；按住 2 秒坐下、卸力并关闭 Zero。</span></div></div><div class="pad-help-grid roller-help" aria-label="实体手柄滑轮操作说明"><div><b>滑轮 · ↑ 长按 3 秒</b><span>实体手柄切换行走 / 滑轮，进入滑轮默认蹲下。</span></div><div><b>滑轮 · ← 长按 2 秒</b><span>静止 HOME 时切换 A：蹲下 / 原地转。</span></div><div><b>滑轮 · A</b><span>执行当前蹲下 / 原地转模型。</span></div><div><b>滑轮 · 倒地起身</b><span>实体 L3（左摇杆按下）：仅滑轮模式、运动已启用且 IMU 确认倒地时测试起身 5 秒；Start 可取消。</span></div><div><b>滑轮 · 左 / 右摇杆</b><span>左杆前后滑行；右杆使用 IMU 航向反馈转向。</span></div></div><p>滑轮操作使用实体手柄；此处只显示说明。运动模式下先 HOME，再启用策略；切换 A 动作前关闭策略并回 HOME。网页 ↑ / ← / →、L3、R3、中央键保持不可用。</p><p>松开摇杆只回中，继续使用走路模型做零速度保持。真实手柄接入时，网页动作输入暂停。</p></section></div></div>
+<section class="pad-help" aria-label="中文按键说明"><button type="button" class="pad-help-close" aria-label="关闭按键说明">关闭</button><h3>中文按键说明</h3><div class="pad-help-grid"><div><b>Start</b><span>首次 HOME；后续启用 / 关闭策略（回 HOME）。</span></div><div><b>左摇杆</b><span>行走模式：前后走 / 左右侧移。</span></div><div><b>右摇杆</b><span>行走模式：左右转向，上下未绑定。</span></div><div><b>Y · 头部模式</b><span>Y 切换头部 / 行走。左杆俯仰、转头；右杆颈部、侧倾。头部模式速度归零。</span></div><div><b>B · 身体姿态</b><span>B 切换身体 / 行走。左杆高低；右杆俯仰、侧倾。身体模式速度归零。</span></div><div><b>方向键 ↓</b><span>10000 轮起坐：坐下 / 站起切换。</span></div><div><b>A · 低头捡物</b><span>内置捡物模型；策略启用后按一次，走官方相位流程，约 2.8 秒后回到走路模型。</span></div><div><b>X · 前滚翻</b><span>10000 轮前滚翻；启用策略后基准 1.00，按一次约 1 秒，按住连续翻滚。Walk 槽现为行走 / 起身联合模型。</span></div><div><b>左脚踢球</b><span>HOME 后启用策略，按 LB 执行 10000 轮左踢，0.5 秒单次动作，完成后回到行走模型。</span></div><div><b>右脚踢球</b><span>HOME 后启用策略，按 RB 或点击网页手柄的 RB 键。完成后回到行走模型。</span></div><div><b>LT / RT</b><span>LT 长叫，RT 短叫；扳机开嘴，松开闭嘴。嘴巴滑条限制网页及真实手柄的张嘴幅度，不缩放声音扳机、不主动开嘴。HOME 后可叫声张嘴。</span></div><div><b>R3 / 菜单键</b><span>点击接通进入对话（按钮保持绿灯）；再点弹起挂断，恢复鸭子自有叫声/语音。需配置 [bobo]。</span></div><div><b>Select</b><span>松开卸力；按住 2 秒坐下、卸力并关闭 Zero。</span></div></div><div class="pad-help-grid roller-help" aria-label="实体手柄滑轮操作说明"><div><b>滑轮 · ↑ 长按 3 秒</b><span>实体手柄切换行走 / 滑轮，进入滑轮默认蹲下。</span></div><div><b>滑轮 · ← 长按 2 秒</b><span>静止 HOME 时切换 A：蹲下 / 原地转。</span></div><div><b>滑轮 · A</b><span>执行当前蹲下 / 原地转模型。</span></div><div><b>滑轮 · 倒地起身</b><span>实体 L3（左摇杆按下）：仅滑轮模式、运动已启用且 IMU 确认倒地时测试起身 5 秒；Start 可取消。</span></div><div><b>滑轮 · 左 / 右摇杆</b><span>左杆前后滑行；右杆使用 IMU 航向反馈转向。</span></div></div><p>滑轮操作使用实体手柄；此处只显示说明。运动模式下先 HOME，再启用策略；切换 A 动作前关闭策略并回 HOME。网页 ↑ / ← / →、L3 保持不可用；R3 与中央菜单键触发 BoBo 语音对话。</p><p>松开摇杆只回中，继续使用走路模型做零速度保持。真实手柄接入时，网页动作输入暂停。</p></section></div></div>
+    </section>
+    <section class="panel bobo-voice-panel" id="bobo-voice-panel" aria-label="BoBo 语音对话">
+      <div class="panel-head"><div><span class="section-index">02b</span><h2>BoBo 语音</h2></div><span id="bobo-voice-badge" class="badge neutral">待命</span></div>
+      <div class="bobo-voice-body">
+        <div class="bobo-voice-card">
+          <span class="bobo-voice-label">WLAN MAC（Device-Id）</span>
+          <strong id="bobo-wlan-mac" class="bobo-voice-mac">—</strong>
+          <small class="tiny muted">与小智 OTA / 云端登记一致；优先取 wlan 网卡地址</small>
+        </div>
+        <div class="bobo-voice-card">
+          <span class="bobo-voice-label">通话状态</span>
+          <strong id="bobo-voice-status" class="bobo-voice-status">状态: 待命</strong>
+          <div class="bobo-voice-meta">
+            <span>连接 · <b id="bobo-voice-link">未连接</b></span>
+            <span>表情 · <b id="bobo-voice-emotion">neutral</b></span>
+            <span>按键 · <b id="bobo-voice-hint">R3 / 菜单键接通</b></span>
+          </div>
+        </div>
+      </div>
+      <p id="bobo-voice-detail" class="tiny muted" role="status">等待 robotd 系统遥测中的 bobo 字段。</p>
+      <div class="bobo-expr-panel" id="bobo-expr-panel" aria-label="说话时头部幅度">
+        <div class="bobo-keyword-head">
+          <div>
+            <span class="bobo-voice-label">说话时头部幅度</span>
+            <p class="tiny muted">100% 为设计幅度；最高 200%，超出部分会被舵机安全限位夹紧（约 ±0.18 rad），不会冲限位。</p>
+          </div>
+          <div class="bobo-keyword-actions">
+            <button type="button" id="bobo-expr-amp-save" class="button accent">保存幅度</button>
+          </div>
+        </div>
+        <label class="bobo-expr-amp">幅度 <output id="bobo-expr-amp-value">100%</output>
+          <input id="bobo-expr-amp" type="range" min="0" max="200" step="5" value="100" aria-label="说话时头部幅度">
+        </label>
+        <p id="bobo-expr-amp-status" class="tiny muted" role="status">等待系统遥测中的表情幅度。</p>
+      </div>
+      <div class="bobo-keyword-panel" id="bobo-keyword-panel" aria-label="语音关键词动作">
+        <div class="bobo-keyword-head">
+          <div>
+            <span class="bobo-voice-label">关键词动作</span>
+            <p class="tiny muted">识别到左侧关键词时，若鸭子正坐着或站着空闲，则执行右侧动作；忙时忽略。</p>
+          </div>
+          <div class="bobo-keyword-actions">
+            <button type="button" id="bobo-keyword-add" class="button">加一行</button>
+            <button type="button" id="bobo-keyword-save" class="button accent">保存到鸭子</button>
+          </div>
+        </div>
+        <div class="bobo-keyword-cols" aria-hidden="true"><span>关键词</span><span>动作</span><span></span></div>
+        <div id="bobo-keyword-rows" class="bobo-keyword-rows"></div>
+        <p id="bobo-keyword-status" class="tiny muted" role="status">等待系统遥测中的关键词表。</p>
+      </div>
     </section>
       <section class="panel imu-panel"><div class="panel-head"><div><h2>IMU · 身体姿态</h2></div><span id="imu-badge" class="badge neutral">等待</span></div><div class="imu-body"><div class="attitude-dial"><svg viewBox="0 0 170 170" aria-label="姿态仪"><defs><clipPath id="dial-clip"><circle cx="85" cy="85" r="65"/></clipPath></defs><circle cx="85" cy="85" r="76" fill="none" stroke="#394346" stroke-dasharray="1 9" stroke-width="5"/><g clip-path="url(#dial-clip)"><g id="horizon"><rect x="-100" y="-150" width="400" height="235" fill="#233742"/><rect x="-100" y="85" width="400" height="260" fill="#343b29"/><path d="M-50 85H220" stroke="#bce58b" stroke-width="2"/><path d="M65 65H105M75 45H95M65 105H105M75 125H95" stroke="#91a5a4"/></g></g><path d="M40 85h28l8 7h18l8-7h28" stroke="#d4fc98" fill="none" stroke-width="3"/><path d="M80 15l5 9 5-9" fill="#cef58b"/></svg><div id="tilt-status">姿态未知</div></div><div class="imu-values"><div><span>横滚 / Roll</span><strong id="imu-roll">—</strong></div><div><span>俯仰 / Pitch</span><strong id="imu-pitch">—</strong></div><div><span>融合就绪</span><strong id="imu-ready">—</strong></div><div><span>连续旧样本</span><strong id="imu-stale">—</strong></div></div></div><div class="vector-line"><span class="muted">重力 XYZ</span><code id="imu-gravity">— / — / —</code></div><canvas class="chart sensor-chart" id="gravity-chart" aria-label="重力方向历史曲线"></canvas><div class="legend"><span class="red">● X</span><span class="green">● Y</span><span class="blue">● Z</span><span class="muted">最近 60 秒 · 单位向量</span></div><div class="raw-vectors"><div><span>陀螺仪 <small>rad/s</small></span><code id="imu-gyro">冻结版未导出</code></div><div><span>四元数 <small>wxyz</small></span><code id="imu-quat">冻结版未导出</code></div></div></section>
       <section class="panel simple-extra"><div class="panel-head"><div><span class="section-index">04</span><h2>ToF · 深度视野</h2></div><span id="tof-badge" class="badge neutral">等待</span></div><div class="tof-layout"><div id="tof-grid" class="tof-grid" aria-label="8×8 深度矩阵"></div><div class="tof-info"><span>最近有效距离</span><strong id="tof-near">—<small>mm</small></strong><span>最远距离</span><strong id="tof-far">—<small>mm</small></strong><span>有效分区</span><strong id="tof-valid">—<small>/64</small></strong><span class="tiny" id="tof-seq">尚无帧</span></div></div><div class="depth-scale"><span>近</span><i></i><span>远 · 4 m</span></div><div class="panel-note" id="tof-message" role="status">等待测距服务连接与首帧数据。</div><div class="panel-note" id="tof-detail">点击格子查看距离及状态</div></section>
       <section class="panel simple-extra"><div class="panel-head"><div><span class="section-index">05</span><h2>轨迹与系统</h2></div><span class="badge neutral">估计值</span></div><canvas id="odom-chart" class="odom-chart" aria-label="接触里程计轨迹"></canvas><div class="odom-values"><span>X <strong id="odom-x">—</strong></span><span>Y <strong id="odom-y">—</strong></span><span>θ <strong id="odom-yaw">—</strong></span></div><div class="system-lines"><div><span>CPU 使用率</span><strong id="sys-cpu">—</strong></div><div class="bar"><i id="cpu-bar"></i></div><div><span>内存使用</span><strong id="sys-memory">—</strong></div><div class="bar"><i id="memory-bar"></i></div><div><span>Zero 温度</span><strong id="sys-temp">—</strong></div><div><span>Zero 开机时长</span><strong id="sys-uptime">—</strong></div></div></section>
     </div>
+    <section class="panel pose-snapshot-panel" id="pose-snapshot" aria-label="关节角快照">
+      <div class="panel-head">
+        <div><span class="section-index">05b</span><h2>关节角快照</h2><span id="pose-snapshot-badge" class="badge neutral">等待</span></div>
+        <div class="pose-snapshot-actions">
+          <button type="button" class="button accent" id="pose-snapshot-read">读取全部关节角</button>
+          <button type="button" class="button" id="pose-snapshot-copy-text">复制表格</button>
+          <button type="button" class="button" id="pose-snapshot-copy-rad">复制弧度字典</button>
+          <button type="button" class="button" id="pose-snapshot-copy-deg">复制角度字典</button>
+          <button type="button" class="button" id="pose-snapshot-copy-legs">仅复制腿部弧度</button>
+        </div>
+      </div>
+      <div class="pose-snapshot-toolbar">
+        <label><input type="checkbox" id="pose-snapshot-live">持续刷新（不冻结）</label>
+        <p id="pose-snapshot-status" class="tiny muted" role="status">摆好姿势后点「读取全部关节角」，可复制给训练策略当目标姿态。</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>舵机 ID / 中文名</th><th>关节名</th><th>角度 °</th><th>弧度 rad</th><th>状态</th></tr>
+          </thead>
+          <tbody id="pose-snapshot-rows"><tr><td colspan="5" class="muted">尚未读取</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel-note">角度来自实机反馈（标定后的关节角）。接入标定模式若显示「已存换算」，勿当作实物角。训练目标请优先用「仅复制腿部弧度」。</div>
+    </section>
     <section class="panel motors-panel" id="motors"><div class="panel-head"><div><span class="section-index">06</span><h2>执行器 · 舵机诊断</h2><span class="badge neutral">XL330-M288-T</span></div><a class="text-button" href="/api/servos.csv" download>↓ CSV 快照</a></div>
       <div class="motor-toolbar"><div class="segmented" id="group-filter"><button class="selected" data-group="all">全部关节</button><button data-group="left">左腿</button><button data-group="head">头部</button><button data-group="right">右腿</button></div><input id="motor-search" type="search" placeholder="搜索 ID / 关节" aria-label="搜索舵机"></div>
       <div class="table-scroll"><table><thead><tr><th>关节 / ID</th><th>反馈状态</th><th>实际角度 °</th><th>目标 °</th><th>误差 °</th><th>速度 rpm</th><th>电流 mA</th><th>温度 °C</th><th>电压 V</th><th>电流占限值 % ⓘ</th><th>PWM %</th><th>扭矩 / 故障</th></tr></thead><tbody id="motor-rows"></tbody></table></div>

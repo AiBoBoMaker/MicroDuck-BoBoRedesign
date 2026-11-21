@@ -102,10 +102,6 @@ const BUS_DROP_QUIET: Duration = Duration::from_secs(60);
 /// Bus ID of the beak. Servo 14 is the right ankle, so the voice call does not drive it.
 const VOICE_MOUTH_SERVO: u8 = 34;
 
-/// One open-and-shut while the server is speaking. Starts shut, fully open halfway
-/// through, and shut again at the end of the period.
-const TALK_MOUTH_PERIOD: Duration = Duration::from_millis(360);
-
 fn voice_mouth_index() -> usize {
     duck_control::model::JOINT_IDS
         .iter()
@@ -113,11 +109,9 @@ fn voice_mouth_index() -> usize {
         .expect("the beak servo is one of the fifteen joints")
 }
 
-/// Opening from 0 (shut) to 1 (open) and back, for [`TALK_MOUTH_PERIOD`].
-fn talk_mouth_open(now: Instant, since: Instant) -> f64 {
-    let period = TALK_MOUTH_PERIOD.as_secs_f64();
-    let phase = (now.saturating_duration_since(since).as_secs_f64() / period).fract();
-    if phase < 0.5 { phase * 2.0 } else { (1.0 - phase) * 2.0 }
+/// TTS envelope 0..=1000 → mouth open 0..=1 for servo 34.
+fn talk_mouth_from_level(level: u32) -> f64 {
+    (level as f64 / 1000.0).clamp(0.0, 1.0)
 }
 
 /// How fast the beak follows the vowel being sung, as a time constant.
@@ -787,8 +781,23 @@ struct RobotState {
     voice_toggle_rx: std::sync::Mutex<Option<tokio::sync::mpsc::Receiver<()>>>,
     /// True while a voice call holds the codec. The control loop drops its own sounds.
     voice_speaker: Arc<AtomicBool>,
-    /// True while the server is playing a sentence. The beak chatters, then shuts.
+    /// True while the server is playing a sentence. The beak follows the audio envelope.
     voice_talking: Arc<AtomicBool>,
+    /// Decoded TTS peak → mouth open, 0..=1000. Written by bobo playback.
+    voice_mouth: Arc<AtomicU32>,
+    /// BoBo call phase for console: 0 idle, 1 connecting, 2 listening, 3 speaking.
+    voice_phase: Arc<AtomicU8>,
+    /// Last `llm.emotion` code (`bobo::Emotion`) for head expression + console.
+    voice_emotion: Arc<AtomicU8>,
+    /// Bumped on each TTS `sentence_start` so one sentence keeps one pose seed.
+    voice_expression_seed: Arc<AtomicU32>,
+    /// Live head-expression amp ×1000 (`1000` = designed `1.0`). Console JSON hot-reloads.
+    voice_expression_amp_milli: AtomicU32,
+    /// Live STT keyword → action table (toml bootstrap + console JSON hot-reload).
+    bobo_keywords: Arc<ArcSwap<Vec<bobo::KeywordRule>>>,
+    /// BoBo STT keyword hits. Control loop drains; full = drop (already mid-action).
+    keyword_hit_tx: tokio::sync::mpsc::Sender<String>,
+    keyword_hit_rx: std::sync::Mutex<Option<tokio::sync::mpsc::Receiver<String>>>,
 }
 
 impl RobotState {
@@ -799,6 +808,22 @@ impl RobotState {
         force_busy: bool,
     ) -> Self {
         let (voice_toggle, voice_rx) = tokio::sync::mpsc::channel(4);
+        let (keyword_hit_tx, keyword_hit_rx) = tokio::sync::mpsc::channel(4);
+        let mut bootstrap_keywords: Vec<bobo::KeywordRule> = params
+            .bobo
+            .keywords
+            .iter()
+            .filter(|k| !k.needle.trim().is_empty() && !k.action.trim().is_empty())
+            .map(|k| bobo::KeywordRule::new(k.needle.trim(), k.action.trim()))
+            .collect();
+        // Console JSON overrides toml when present.
+        if let Ok(rules) = bobo::load_json_file(Path::new(BOBO_KEYWORDS_PATH)) {
+            bootstrap_keywords = rules;
+        }
+        let mut expression_amp = bobo::clamp_expression_amp(params.bobo.expression_amp);
+        if let Some(amp) = load_bobo_expression_amp(Path::new(BOBO_EXPRESSION_PATH)) {
+            expression_amp = amp;
+        }
         Self {
             read_only: AtomicBool::new(false),
             commissioning: AtomicBool::new(false),
@@ -863,6 +888,14 @@ impl RobotState {
             voice_toggle_rx: std::sync::Mutex::new(Some(voice_rx)),
             voice_speaker: Arc::new(AtomicBool::new(false)),
             voice_talking: Arc::new(AtomicBool::new(false)),
+            voice_mouth: Arc::new(AtomicU32::new(0)),
+            voice_phase: Arc::new(AtomicU8::new(0)),
+            voice_emotion: Arc::new(AtomicU8::new(0)),
+            voice_expression_seed: Arc::new(AtomicU32::new(0)),
+            voice_expression_amp_milli: AtomicU32::new(expression_amp_to_milli(expression_amp)),
+            bobo_keywords: Arc::new(ArcSwap::from_pointee(bootstrap_keywords)),
+            keyword_hit_tx,
+            keyword_hit_rx: std::sync::Mutex::new(Some(keyword_hit_rx)),
         }
     }
 
@@ -1217,6 +1250,30 @@ async fn main() -> ExitCode {
         if let Some(rx) = rx {
             let speaker = Arc::clone(&state.voice_speaker);
             let talking = Arc::clone(&state.voice_talking);
+            let mouth = Arc::clone(&state.voice_mouth);
+            let phase = Arc::clone(&state.voice_phase);
+            let emotion = Arc::clone(&state.voice_emotion);
+            let expression_seed = Arc::clone(&state.voice_expression_seed);
+            let keyword_tx = state.keyword_hit_tx.clone();
+            let keywords_snap = state.bobo_keywords.load_full();
+            let keywords_live = Arc::clone(&state.bobo_keywords);
+            // SessionConfig wants Vec; ArcSwap holds Arc<Vec>. Bridge with a RwLock snapshot
+            // the call refreshes from on each STT message.
+            let keywords_bridge = Arc::new(std::sync::RwLock::new((*keywords_snap).clone()));
+            {
+                let bridge = Arc::clone(&keywords_bridge);
+                let live = Arc::clone(&keywords_live);
+                tokio::spawn(async move {
+                    let mut tick = tokio::time::interval(Duration::from_secs(2));
+                    loop {
+                        tick.tick().await;
+                        let next = live.load_full();
+                        if let Ok(mut guard) = bridge.write() {
+                            *guard = (*next).clone();
+                        }
+                    }
+                });
+            }
             let cfg = bobo::SessionConfig {
                 enabled: params.bobo.enabled,
                 url: params.bobo.url.clone(),
@@ -1224,9 +1281,22 @@ async fn main() -> ExitCode {
                 client_id_path: params.bobo.client_id_path.display().to_string(),
                 capture_device: params.audio.capture_device(),
                 playback_device: params.audio.device.clone(),
+                keywords: (*keywords_snap).clone(),
             };
             tokio::spawn(async move {
-                bobo::run(rx, speaker, talking, cfg).await;
+                bobo::run(
+                    rx,
+                    speaker,
+                    talking,
+                    mouth,
+                    phase,
+                    emotion,
+                    expression_seed,
+                    keyword_tx,
+                    keywords_bridge,
+                    cfg,
+                )
+                .await;
             });
             tracing::warn!(url = %params.bobo.url, "语音对话待命：右摇杆按下或菜单键接通");
         }
@@ -2372,8 +2442,26 @@ async fn control_loop<T: RobotIo>(
         .then(|| theremin::Theremin::spawn(params.theremin.socket.clone(), params.theremin.hand()));
     // How far the beak is open for the chorale, slewed across ticks — see where it is written.
     let mut chorale_mouth = 0.0f64;
-    // When the server started the sentence now being played, so the beak starts shut.
-    let mut talk_since: Option<Instant> = None;
+    // Slewed TTS mouth so servo 34 follows speech without twitching every Opus frame.
+    let mut talk_mouth = 0.0f64;
+    let mut was_voice_talking = false;
+    // Sparse head expression while BoBo TTS plays (`llm.emotion` → offsets).
+    let mut voice_head = [0.0f64; 4];
+    let mut voice_expr_seed_seen = 0u32;
+    let mut voice_expr_started = Instant::now();
+    let voice_expression_on = params.bobo.expression;
+    // Keyword-triggered head presets (nod / sway / …). Model skills go through queue_skill.
+    let mut keyword_rx = state
+        .keyword_hit_rx
+        .lock()
+        .ok()
+        .and_then(|mut slot| slot.take());
+    let mut keyword_gesture: Option<(bobo::PresetGesture, Instant)> = None;
+    let mut keywords_mtime: Option<std::time::SystemTime> = None;
+    let mut expression_mtime: Option<std::time::SystemTime> = None;
+    let mut keywords_reload_at = Instant::now();
+    reload_bobo_keywords(&state, &mut keywords_mtime);
+    reload_bobo_expression_amp(&state, &mut expression_mtime);
     // And how the head sways while singing, applied to the next tick's command.
     let mut chorale_head = [0.0f64; 4];
 
@@ -3932,27 +4020,156 @@ async fn control_loop<T: RobotIo>(
             targets[duck_control::model::MOUTH_INDEX] =
                 duck_control::model::mouth_target(snapshot.mouth);
         }
-        // The beak chatters for the sentence, then shuts. A trigger that was still
-        // holding it open is cleared on that edge, so the sentence always ends shut.
+        // Beak follows TTS amplitude (servo 34). Clears on sentence end so LT/RT can take over.
         let talking = state.voice_talking.load(Ordering::Relaxed);
+        let talking_edge = talking && !was_voice_talking;
         let voice_mouth = voice_mouth_index();
-        if talking {
-            let since = *talk_since.get_or_insert(tick_start);
-            if mouth_ready {
-                targets[voice_mouth] =
-                    duck_control::model::mouth_target(talk_mouth_open(tick_start, since));
+        let level = state.voice_mouth.load(Ordering::Relaxed);
+        let target_open = if talking {
+            talk_mouth_from_level(level)
+        } else {
+            0.0
+        };
+        // ~60 ms time constant at 50 Hz — close to a jaw, not a twitch.
+        const TALK_MOUTH_ALPHA: f64 = 0.28;
+        talk_mouth += (target_open - talk_mouth) * TALK_MOUTH_ALPHA;
+        if talk_mouth < 0.02 {
+            talk_mouth = 0.0;
+        }
+        // Voice beak needs torque-on (HOME done). Drive whenever we can write joints.
+        let voice_mouth_ok = mouth_ready || (startup_pose_ready && !powered_off && !in_limp_fall);
+        if talking || talk_mouth > 0.0 {
+            if voice_mouth_ok {
+                // Also publish via intents so pad mouth_percent scaling still applies.
+                intents.set_mouth(talk_mouth);
+                targets[voice_mouth] = duck_control::model::mouth_target(talk_mouth);
+                if talking_edge && level > 50 {
+                    tracing::warn!(level, open = talk_mouth, "TTS 驱动嘴巴舵机 34");
+                }
+            } else if talking_edge {
+                tracing::warn!(
+                    "服务器在说话，但嘴巴舵机尚未可用：先 Start 回 HOME 开力矩；并确认 /etc/robot/feetech-ft5/hd1910-calibration.toml 里 mouth(id=34) calibrated=true 且有 min_rad/max_rad"
+                );
             }
-        } else if talk_since.take().is_some() {
+            was_voice_talking = true;
+        } else if was_voice_talking {
+            was_voice_talking = false;
             intents.set_mouth(0.0);
-            if mouth_ready && theremin_state.is_none() && chorale_state.is_none() {
+            if voice_mouth_ok && theremin_state.is_none() && chorale_state.is_none() {
                 targets[voice_mouth] = duck_control::model::mouth_target(0.0);
+            }
+        }
+
+        // Hot-reload console keyword table without restarting robotd.
+        if keywords_reload_at.elapsed() >= Duration::from_secs(2) {
+            keywords_reload_at = tick_start;
+            reload_bobo_keywords(&state, &mut keywords_mtime);
+            reload_bobo_expression_amp(&state, &mut expression_mtime);
+        }
+
+        // STT keyword hits: only while sitting/standing idle (not mid skill / not walking).
+        if let Some(rx) = keyword_rx.as_mut() {
+            while let Ok(action) = rx.try_recv() {
+                let gesture_busy = keyword_gesture.is_some_and(|(g, started)| {
+                    tick_start.duration_since(started) < g.duration()
+                });
+                let scripted_busy = controller.as_ref().is_some_and(|c| c.busy());
+                let body_idle = !scripted_busy
+                    && !state.moving.load(Ordering::Relaxed)
+                    && !in_limp_fall
+                    && bringup == Bringup::Ready;
+                if gesture_busy || !body_idle {
+                    tracing::info!(
+                        %action,
+                        gesture_busy,
+                        body_idle,
+                        "关键词动作忽略（忙或非坐/站空闲）"
+                    );
+                    continue;
+                }
+                if let Some(gesture) = bobo::PresetGesture::parse(&action) {
+                    tracing::warn!(preset = gesture.id(), "关键词触发头部预设");
+                    keyword_gesture = Some((gesture, tick_start));
+                } else if queue_skill(&state, &intents, &action) {
+                    tracing::warn!(skill = %action, "关键词触发模型动作");
+                } else {
+                    tracing::warn!(%action, "关键词动作未知或模型未加载");
+                }
+            }
+        }
+        if let Some((gesture, started)) = keyword_gesture {
+            if tick_start.duration_since(started) >= gesture.duration() {
+                keyword_gesture = None;
+            }
+        }
+
+        // Head expression from llm.emotion — sparse offsets on neck/head while TTS plays.
+        // Applied onto the already-chosen targets so both policy and hold poses get it.
+        // Skip while chorale owns the head sway. Keyword presets win over emotion sway.
+        const VOICE_HEAD_ALPHA: f64 = 0.12;
+        const VOICE_HEAD: [usize; 4] = [5, 6, 7, 8]; // neck_pitch .. head_roll
+        let chorale_owns_head = chorale_state.is_some();
+        let voice_expression_amp = voice_expression_amp_of(&state);
+        let expr_target = if let Some((gesture, started)) = keyword_gesture {
+            if !chorale_owns_head && !in_limp_fall && voice_mouth_ok {
+                bobo::preset_offsets(
+                    gesture,
+                    tick_start.duration_since(started),
+                    voice_expression_amp,
+                )
+            } else {
+                [0.0; 4]
+            }
+        } else if talking
+            && voice_expression_on
+            && !chorale_owns_head
+            && !in_limp_fall
+            && voice_mouth_ok
+        {
+            let seed = state.voice_expression_seed.load(Ordering::Relaxed);
+            if seed != voice_expr_seed_seen || talking_edge {
+                voice_expr_seed_seen = seed;
+                voice_expr_started = tick_start;
+            }
+            let emotion =
+                bobo::Emotion::from_code(state.voice_emotion.load(Ordering::Relaxed));
+            let elapsed = tick_start
+                .checked_duration_since(voice_expr_started)
+                .unwrap_or_default();
+            bobo::head_offsets(emotion, seed, elapsed, voice_expression_amp)
+        } else {
+            [0.0; 4]
+        };
+        for (offset, target) in voice_head.iter_mut().zip(expr_target) {
+            *offset += (target - *offset) * VOICE_HEAD_ALPHA;
+            if offset.abs() < 1e-4 {
+                *offset = 0.0;
+            }
+        }
+        let voice_head_active = voice_head.iter().any(|v| v.abs() > 1e-4);
+        if voice_head_active {
+            for (&index, &delta) in VOICE_HEAD.iter().zip(&voice_head) {
+                if targets[index].is_finite() {
+                    targets[index] += delta;
+                }
             }
         }
 
         // Expose the same per-joint hold targets enforced by the Feetech writer.
         // This hardware-adapter extension does not reset the policy controller.
+        // Never freeze the mouth (or expressive head) while TTS is driving them.
         if targets.iter().all(|v| v.is_finite()) {
-            for (target, measured) in targets.iter_mut().zip(safety.held_joint_positions()) {
+            for (index, (target, measured)) in targets
+                .iter_mut()
+                .zip(safety.held_joint_positions())
+                .enumerate()
+            {
+                if index == voice_mouth && (talking || talk_mouth > 0.0) {
+                    continue;
+                }
+                if voice_head_active && VOICE_HEAD.contains(&index) {
+                    continue;
+                }
                 if let Some(measured) = measured {
                     *target = measured;
                 }
@@ -5348,6 +5565,90 @@ fn queue_skill(state: &RobotState, intents: &Intents, skill: &str) -> bool {
             }
             None => false,
         },
+    }
+}
+
+/// Console / operator keyword table. Overrides `[bobo.keyword]` when the file exists.
+const BOBO_KEYWORDS_PATH: &str = "/var/lib/robot/bobo-keywords.json";
+/// Console head-expression amp. Overrides `[bobo] expression_amp` when the file exists.
+const BOBO_EXPRESSION_PATH: &str = "/var/lib/robot/bobo-expression.json";
+
+fn expression_amp_to_milli(amp: f64) -> u32 {
+    (bobo::clamp_expression_amp(amp) * 1000.0).round() as u32
+}
+
+fn voice_expression_amp_of(state: &RobotState) -> f64 {
+    bobo::clamp_expression_amp(
+        state.voice_expression_amp_milli.load(Ordering::Relaxed) as f64 / 1000.0,
+    )
+}
+
+fn load_bobo_expression_amp(path: &Path) -> Option<f64> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let amp = value.get("expression_amp")?.as_f64()?;
+    Some(bobo::clamp_expression_amp(amp))
+}
+
+fn reload_bobo_keywords(
+    state: &RobotState,
+    mtime: &mut Option<std::time::SystemTime>,
+) {
+    let path = Path::new(BOBO_KEYWORDS_PATH);
+    let meta = match std::fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => {
+            // File removed: keep whatever toml/bootstrap already loaded; do not clear.
+            *mtime = None;
+            return;
+        }
+    };
+    let modified = meta.modified().ok();
+    if modified == *mtime {
+        return;
+    }
+    match bobo::load_json_file(path) {
+        Ok(rules) => {
+            *mtime = modified;
+            tracing::warn!(count = rules.len(), path = BOBO_KEYWORDS_PATH, "已重载 BoBo 关键词");
+            state.bobo_keywords.store(Arc::new(rules));
+        }
+        Err(error) => {
+            // Remember this mtime so a broken file does not warn every 2s forever.
+            *mtime = modified;
+            tracing::warn!(%error, path = BOBO_KEYWORDS_PATH, "BoBo 关键词文件无效（改文件或页面重存后会再读）");
+        }
+    }
+}
+
+fn reload_bobo_expression_amp(
+    state: &RobotState,
+    mtime: &mut Option<std::time::SystemTime>,
+) {
+    let path = Path::new(BOBO_EXPRESSION_PATH);
+    let meta = match std::fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => {
+            *mtime = None;
+            return;
+        }
+    };
+    let modified = meta.modified().ok();
+    if modified == *mtime {
+        return;
+    }
+    match load_bobo_expression_amp(path) {
+        Some(amp) => {
+            *mtime = modified;
+            state
+                .voice_expression_amp_milli
+                .store(expression_amp_to_milli(amp), Ordering::Relaxed);
+            tracing::warn!(amp, path = BOBO_EXPRESSION_PATH, "已重载 BoBo 头部表情幅度");
+        }
+        None => {
+            *mtime = modified;
+            tracing::warn!(path = BOBO_EXPRESSION_PATH, "BoBo 表情幅度文件无效（改文件后再读）");
+        }
     }
 }
 
@@ -7515,14 +7816,11 @@ mod tests {
         );
     }
     #[test]
-    fn the_beak_shuts_at_both_ends_of_a_spoken_sentence() {
-        let start = Instant::now();
-        assert_eq!(talk_mouth_open(start, start), 0.0);
-        let half = start + TALK_MOUTH_PERIOD / 2;
-        let open = talk_mouth_open(half, start);
-        assert!((open - 1.0).abs() < 1e-9, "{open}");
-        let again = start + TALK_MOUTH_PERIOD;
-        assert!(talk_mouth_open(again, start).abs() < 1e-9);
+    fn the_beak_scales_with_tts_envelope() {
+        assert_eq!(talk_mouth_from_level(0), 0.0);
+        assert!((talk_mouth_from_level(500) - 0.5).abs() < 1e-9);
+        assert!((talk_mouth_from_level(1000) - 1.0).abs() < 1e-9);
+        assert!((talk_mouth_from_level(2000) - 1.0).abs() < 1e-9);
     }
 
     #[test]

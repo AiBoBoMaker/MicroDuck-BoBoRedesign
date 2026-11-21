@@ -611,7 +611,7 @@ class TrainingManager(DurableTrainingMixin):
                 if not pending:break
                 if time.monotonic()>deadline:raise RuntimeError('旧仿真尚未退出，未启动新模型。训练任务不受此切换影响。请查看旧仿真日志。')
                 time.sleep(.05)
-            bundle = {name:(ROOT/'training'/name).read_text(encoding='utf-8') for name in ('runtime_adapter.py','recovery_evaluation.py','target_limit_profile.py','target_limit_actions.py','limit_comparison_request.py','recorded_start.py','limit_comparison.py','sample_alignment.py','checkpoint_policy.py','live_view.py','event_protocol.py','sim_protocol.py','recipe.py','config_audit.py','official_spec.py','official_adapter.py','hd1910_actuator.py','hd1910_m6.json','deployment.py','action_filter.py','filtered_actions.py')}
+            bundle = {name:(ROOT/'training'/name).read_text(encoding='utf-8') for name in ('runtime_adapter.py','recovery_evaluation.py','target_limit_profile.py','target_limit_actions.py','limit_comparison_request.py','recorded_start.py','limit_comparison.py','sample_alignment.py','checkpoint_policy.py','live_view.py','event_protocol.py','sim_protocol.py','recipe.py','config_audit.py','official_spec.py','official_adapter.py','splits_task.py','hd1910_actuator.py','hd1910_m6.json','deployment.py','action_filter.py','filtered_actions.py')}
             payload = ('WORKER_REQUEST = '+repr(job['request'])+'\nWORKER_BUNDLE = '+repr(bundle)+'\n'+(ROOT/'training'/'worker.py').read_text(encoding='utf-8')).encode('utf-8')
             with self.lock:
                 if self.closed or job['status'] == 'stopping':
@@ -946,7 +946,7 @@ def main(argv=None):
     except OSError:
         print(f'端口 {args.port} 已被占用，请先关闭旧训练中控。', flush=True);return 2
     server.daemon_threads = True
-    print('Microduck Training Studio R1.5.27\n中控：http://127.0.0.1:%s\n开源：https://github.com/kissqy/Microduck-kissqy' % args.port, flush=True)
+    print('Microduck Training Studio R1.5.27\n中控：http://127.0.0.1:%s\n开源：https://github.com/AiBoBoMaker/MicroDuck-BoBoRedesign' % args.port, flush=True)
     try:
         manager.reconnect_training()
         manager.start_queue_scheduler()

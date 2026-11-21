@@ -740,6 +740,10 @@ pub struct AudioParams {
     pub enabled: bool,
     /// ALSA playback device — the TLV320AIC3104 codec.
     pub device: String,
+    /// Optional capture PCM, used as-is when set (e.g. `duckmix_cap` on Orange Pi,
+    /// which takes the left S32_LE slot from aic3104). When absent, derived from
+    /// [`Self::device`] via [`Self::capture_device`].
+    pub capture_pcm: Option<String>,
     /// Where the per-robot voice bank lives. The release's postinstall renders it there
     /// (`sounds ensure-bank`), seeded from the SoC serial.
     pub bank: PathBuf,
@@ -764,6 +768,7 @@ impl Default for AudioParams {
         Self {
             enabled: true,
             device: "plughw:aic3104".to_owned(),
+            capture_pcm: None,
             bank: PathBuf::from("/var/lib/robot/sounds"),
             greet: true,
             pet_detect: None,
@@ -784,12 +789,16 @@ impl AudioParams {
         self.pet_detect.unwrap_or(false)
     }
 
-    /// The capture PCM for the mic worker: the playback device with subdevice 0. Only
-    /// appended when the operator has not already spelled a subdevice out — `plughw:aic3104`
-    /// in `robotd.toml` is the default and needs it, but the equally natural full spec
-    /// `plughw:aic3104,0` would otherwise become `plughw:aic3104,0,0`, which no card
-    /// answers to. That lands the worker in its restart loop for the life of the daemon.
+    /// The capture PCM for the mic worker / BoBo uplink.
+    ///
+    /// Prefer [`Self::capture_pcm`] when set. Otherwise: the playback device with subdevice
+    /// 0, appended only when the operator has not already spelled a subdevice out —
+    /// `plughw:aic3104` needs it, but `plughw:aic3104,0` must not become
+    /// `plughw:aic3104,0,0`.
     pub fn capture_device(&self) -> String {
+        if let Some(pcm) = &self.capture_pcm {
+            return pcm.clone();
+        }
         if self.device.contains(',') {
             self.device.clone()
         } else {
@@ -807,6 +816,19 @@ impl AudioParams {
     }
 }
 
+/// One STT keyword → action mapping under `[bobo]`.
+///
+/// `match` is a substring of the ASR text. `action` is either a head preset
+/// (`preset:nod`, `preset:sway`, `preset:shake_hard`, `preset:laugh`) or a
+/// `robot.do` skill name already deployed on the duck.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BoboKeyword {
+    #[serde(rename = "match")]
+    pub needle: String,
+    pub action: String,
+}
+
 /// `[bobo]` — the duck's voice call.
 ///
 /// Off until a server URL is written. The two pad buttons nothing else uses, right-stick
@@ -817,12 +839,21 @@ impl AudioParams {
 pub struct BoboParams {
     /// Master switch. A press does nothing while this is false.
     pub enabled: bool,
-    /// WebSocket URL, `ws://` or `wss://`. Empty means the button explains that and stops.
+    /// Voice endpoint. `ws://` / `wss://` connect directly; `http://` / `https://` is the
+    /// OTA URL (py-xiaozhi style) that returns `websocket.url`.
     pub url: String,
     /// Access token. Sent as `Authorization: Bearer <token>` unless it already contains a space.
     pub token: String,
     /// Where the stable client UUID is kept. Created on first use.
     pub client_id_path: PathBuf,
+    /// While TTS plays, map `llm.emotion` to sparse head motion (neck / pitch / yaw / roll).
+    pub expression: bool,
+    /// Scales designed head amplitudes. `1.0` is the default; `0` disables motion.
+    pub expression_amp: f64,
+    /// Optional keyword table (`[[bobo.keyword]]`). Console may also hot-reload
+    /// `/var/lib/robot/bobo-keywords.json`, which overrides this list when present.
+    #[serde(default, rename = "keyword")]
+    pub keywords: Vec<BoboKeyword>,
 }
 
 impl Default for BoboParams {
@@ -832,6 +863,9 @@ impl Default for BoboParams {
             url: String::new(),
             token: String::new(),
             client_id_path: PathBuf::from("/var/lib/robot/bobo-client-id"),
+            expression: true,
+            expression_amp: 1.0,
+            keywords: Vec::new(),
         }
     }
 }
@@ -839,13 +873,17 @@ impl Default for BoboParams {
 impl BoboParams {
     /// Why a button press cannot start a call, when the config itself forbids it.
     pub fn refusal(&self, audio_enabled: bool) -> Option<String> {
+        let url = self.url.trim();
         if !self.enabled {
             Some("语音对话没开，把 [bobo] enabled 设成 true".to_owned())
-        } else if self.url.trim().is_empty() {
+        } else if url.is_empty() {
             Some("还没有配置 [bobo] url".to_owned())
-        } else if !(self.url.trim().starts_with("ws://") || self.url.trim().starts_with("wss://"))
+        } else if !(url.starts_with("ws://")
+            || url.starts_with("wss://")
+            || url.starts_with("http://")
+            || url.starts_with("https://"))
         {
-            Some("语音服务器地址要以 ws:// 或 wss:// 开头".to_owned())
+            Some("语音服务器地址要以 ws://、wss:// 或 OTA 的 http(s):// 开头".to_owned())
         } else if !audio_enabled {
             Some("音频已关闭，麦克风和喇叭都不可用".to_owned())
         } else {
@@ -3009,6 +3047,12 @@ mod tests {
             ..AudioParams::default()
         };
         assert_eq!(spelled_out.capture_device(), "plughw:aic3104,0");
+
+        let override_pcm = AudioParams {
+            capture_pcm: Some("duckmix_cap".to_owned()),
+            ..AudioParams::default()
+        };
+        assert_eq!(override_pcm.capture_device(), "duckmix_cap");
     }
 
     /// An unprovisioned board must still come up. A daemon that refuses to start because a

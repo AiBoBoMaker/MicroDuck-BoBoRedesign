@@ -4,8 +4,13 @@ pub fn configure(p: &mut Params, fake: bool) -> Result<(), String> {
     if fake || p.bus.protocol != BusProtocol::Feetech {
         return Ok(());
     }
-    if p.bus.port != "/dev/ttyACM0" && p.bus.port != "/dev/ttyS2" {
-        return Err("HD1910 deployment requires /dev/ttyACM0 or HAT /dev/ttyS2".into());
+    // ttyACM0: USB serial. ttyS2: Radxa Zero 3W HAT. ttyS0: Orange Pi Zero 2W UART0 HAT.
+    if p.bus.port != "/dev/ttyACM0" && p.bus.port != "/dev/ttyS2" && p.bus.port != "/dev/ttyS0"
+    {
+        return Err(
+            "HD1910 deployment requires /dev/ttyACM0, HAT /dev/ttyS2, or Orange Pi /dev/ttyS0"
+                .into(),
+        );
     }
     let paths = p.policy.resolved();
     let c = match duck_control::deployment::Contract::load(&paths.walk) {

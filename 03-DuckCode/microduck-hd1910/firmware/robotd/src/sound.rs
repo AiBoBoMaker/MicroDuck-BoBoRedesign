@@ -339,7 +339,7 @@ impl Sound {
         match child {
             Ok(mut c) if blocking => wait_bounded(&mut c, BLOCKING_PLAY_MAX),
             Ok(c) => self.child = Some(c),
-            Err(e) => tracing::debug!(error = %e, tag, "aplay failed"),
+            Err(e) => tracing::warn!(error = %e, tag, device = %self.device, "aplay failed"),
         }
     }
 

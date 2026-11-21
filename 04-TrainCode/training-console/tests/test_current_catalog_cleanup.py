@@ -63,8 +63,8 @@ class CurrentCatalogCleanupTests(unittest.TestCase):
         self.assertFalse((runs/('a'*16)).exists())
         self.assertTrue((runs/('b'*16)/'run.json').exists())
         self.assertEqual(set(m.jobs),{'b'*16})
-        self.assertEqual(len(CATALOG['profiles']),15)
-        self.assertEqual(len(TASKS),37)
+        self.assertEqual(len(CATALOG['profiles']),16)
+        self.assertEqual(len(TASKS),39)
 
 
 if __name__ == '__main__':

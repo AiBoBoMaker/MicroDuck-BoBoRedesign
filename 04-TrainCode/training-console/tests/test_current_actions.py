@@ -52,11 +52,11 @@ class CurrentActionTests(unittest.TestCase):
     def test_current_set_and_no_duplicate_action_entries(self):
         roles = [p['role'] for p in CATALOG['profiles']]
         self.assertEqual(len(roles), len(set(roles)))
-        self.assertEqual(set(roles), {'joint','sitstand','ground_pick','kick_left','kick_right','kick_flourish',
+        self.assertEqual(set(roles), {'joint','sitstand','ground_pick','splits','kick_left','kick_right','kick_flourish',
                                      'roulade','walk','stand','roller','crouch',
                                      'swizzle','slope','roller_stand','spin'})
-        self.assertEqual(len(roles), 15)
-        self.assertEqual(len(TASKS), 37)
+        self.assertEqual(len(roles), 16)
+        self.assertEqual(len(TASKS), 39)
         self.assertEqual(DEFAULT_TASK, 'Mjlab-VelStand-Rough-Backlash-MicroDuck')
         for profile in CATALOG['profiles']:
             self.assertIn(profile['default_task'], profile['variants'])

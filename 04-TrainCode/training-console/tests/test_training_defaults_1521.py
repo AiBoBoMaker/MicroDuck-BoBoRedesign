@@ -21,8 +21,8 @@ class TrainingDefaultsTests(unittest.TestCase):
         self.addCleanup(self.manager.close)
 
     def test_all_catalog_defaults_and_real_queue_snapshot(self):
-        self.assertEqual(len(CATALOG['profiles']), 15)
-        self.assertEqual(len(TASKS), 37)
+        self.assertEqual(len(CATALOG['profiles']), 16)
+        self.assertEqual(len(TASKS), 39)
         for task in TASKS:
             self.assertEqual(new_training_action_scale(task), 1.0)
         eid = self.manager.queue_add({'task': WALK, 'client_id': 'new-default'})['entry_id']

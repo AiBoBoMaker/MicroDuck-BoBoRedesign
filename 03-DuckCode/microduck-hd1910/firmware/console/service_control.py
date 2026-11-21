@@ -25,12 +25,120 @@ from firmware_packages import PreparedFirmware, bundle_info
 
 ROOT = Path(__file__).resolve().parent
 STOP_ACTIONS = {"relax", "reboot", "shutdown"}
-MANAGEMENT_ACTIONS = {"repair-gamepad", "set-pad-settings", "set-action-scale", "switch-mode", "reconnect-service", "upgrade-service", "reboot", "shutdown"}
+MANAGEMENT_ACTIONS = {"repair-gamepad", "set-pad-settings", "set-action-scale", "set-bobo-keywords", "set-bobo-expression", "switch-mode", "reconnect-service", "upgrade-service", "reboot", "shutdown"}
 HOME_TIMEOUT = 12.0
 HOME_RESTORE_TIMEOUT = 5.0
 HOME_POLL_INTERVAL = .1
 HOME_TOLERANCE_DEG = 5.0
 HOME_CONFIRM_SAMPLES = 3
+# Runs on the robot. $1 is commissioning or motion, checked before this is sent.
+SWITCH_MODE_SCRIPT = r"""
+set -eu
+target=$1
+r17=/opt/robot/feetech-ft5-r5/service.sh
+if [ -f "$r17" ]; then
+  if [ "$target" = motion ]; then
+    exec /bin/bash "$r17" enable
+  fi
+  exec /bin/bash "$r17" disable
+fi
+bin=/opt/robot/daemon/current/bin/robotd
+if [ ! -x "$bin" ]; then
+  echo "没有 $r17，也没有 $bin" >&2
+  exit 1
+fi
+python3 - <<'PY' || true
+import json, socket
+request = json.dumps({"jsonrpc":"2.0","id":1,"method":"robot.relax","params":{}})+"\n"
+sock = socket.socket(socket.AF_UNIX)
+sock.settimeout(2)
+try:
+    sock.connect("/run/robotd.sock")
+    sock.sendall(request.encode())
+except OSError:
+    pass
+finally:
+    sock.close()
+PY
+sleep 0.3
+# R17 service.sh enable validates calibration then sets motion_enabled=true.
+# R18 must do the same before dropping --commissioning, or step 2 fails with
+# "Feetech motion_enabled is false; complete commissioning first".
+if [ "$target" = motion ]; then
+  python3 - <<'PY'
+import re
+import sys
+import tomllib
+from pathlib import Path
+
+cfg = Path("/etc/robot/robotd.toml")
+text = cfg.read_text(encoding="utf-8") if cfg.is_file() else ""
+match = re.search(r'(?m)^feetech_calibration\s*=\s*"([^"]+)"', text)
+path = Path(match.group(1) if match else "/etc/robot/feetech-ft5/hd1910-calibration.toml")
+if not path.is_file():
+    sys.exit("找不到标定文件：%s" % path)
+data = tomllib.loads(path.read_text(encoding="utf-8"))
+if data.get("imu_mount_verified") is not True:
+    sys.exit("IMU 安装方向尚未确认，请先完成 verify-imu")
+joints = data.get("joints")
+if not isinstance(joints, list) or len(joints) != 15:
+    sys.exit("标定文件需要 15 个关节")
+missing = [row.get("name", "?") for row in joints if row.get("calibrated") is not True]
+if missing:
+    sys.exit("尚未完成关节标定：%s" % ", ".join(missing[:5]))
+raw = path.read_text(encoding="utf-8")
+if re.search(r"(?m)^motion_enabled\s*=", raw):
+    raw = re.sub(r"(?m)^motion_enabled\s*=\s*.*$", "motion_enabled = true", raw, count=1)
+else:
+    raw = "motion_enabled = true\n" + raw
+path.write_text(raw, encoding="utf-8")
+saved = path.with_name(path.stem + ".saved" + path.suffix)
+saved.write_text(raw, encoding="utf-8")
+print("已写入 motion_enabled=true → %s" % path, file=sys.stderr)
+PY
+fi
+dir=/etc/systemd/system/robotd.service.d
+mkdir -p "$dir"
+flag=
+if [ "$target" = commissioning ]; then
+  flag=' --commissioning'
+fi
+cat > "$dir/zzzz-r18-mode.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=$bin --socket /run/robotd.sock$flag
+EOF
+systemctl daemon-reload >/dev/null
+systemctl restart robotd.service >/dev/null
+pid=
+i=0
+while [ "$i" -lt 20 ]; do
+  pid=$(systemctl show robotd.service -p MainPID --value)
+  if [ -n "$pid" ] && [ "$pid" != 0 ] && [ -r "/proc/$pid/cmdline" ]; then
+    break
+  fi
+  i=$((i + 1))
+  sleep 0.25
+done
+if [ ! -r "/proc/${pid:-0}/cmdline" ]; then
+  echo "robotd 没有启动" >&2
+  exit 1
+fi
+args=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+case "$args" in
+  "$bin "*) ;;
+  *) echo "启动的不是 $bin：$args" >&2; exit 1 ;;
+esac
+running=motion
+case "$args" in
+  *" --commissioning "*) running=commissioning ;;
+esac
+if [ "$running" != "$target" ]; then
+  echo "启动后是 $running，不是 $target" >&2
+  exit 1
+fi
+printf '{"mode":"%s","message":"已切换到 %s"}\n' "$target" "$target"
+"""
 def home_feedback(snapshot):
     """Describe measured Home readiness; an accepted RPC or elapsed ramp is not arrival."""
     report = snapshot.get("bus") or {}
@@ -90,6 +198,8 @@ def validate(command):
               "upgrade-service": {"action", "supported", "firmware"},
               "set-action-scale": {"action", "model", "scale", "supported"},
               "set-pad-settings": {"action", "mouth_percent", "head_rad", "supported"},
+              "set-bobo-keywords": {"action", "keywords", "supported"},
+              "set-bobo-expression": {"action", "expression_amp", "supported"},
               "move": {"action", "id", "position", "duration_ms"},
               "center": {"action", "unassembled", "duration_ms"},
               "capture": {"action", "id", "angle_deg", "direction", "min_deg", "max_deg"},
@@ -100,7 +210,7 @@ def validate(command):
         raise ControlError("指令或参数不受支持", 400)
     if "id" in command and (type(command["id"]) is not int or command["id"] not in IDS): raise ControlError("只能控制官方 15 个关节 ID", 400)
     if "duration_ms" in command: numeric(command["duration_ms"], 500, 10000, True)
-    if action in ("init", "switch-mode", "set-pad-settings", "set-action-scale", "reconnect-service", "upgrade-service", "repair-gamepad") and command["supported"] is not True: raise ControlError("请先确认服务操作", 400)
+    if action in ("init", "switch-mode", "set-pad-settings", "set-action-scale", "set-bobo-keywords", "set-bobo-expression", "reconnect-service", "upgrade-service", "repair-gamepad") and command["supported"] is not True: raise ControlError("请先确认服务操作", 400)
     if action == 'repair-gamepad':
         if not isinstance(command['address'], str) or command['address'] and not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', command['address']):
             raise ControlError('手柄 MAC 格式无效', 400)
@@ -119,6 +229,31 @@ def validate(command):
     if action == "set-pad-settings":
         numeric(command["mouth_percent"],0,100)
         if type(command["head_rad"]) not in (int,float) or command["head_rad"] not in (.5,1.,2.5):raise ControlError("头部幅度选项无效",400)
+    if action == "set-bobo-keywords":
+        rows = command["keywords"]
+        if not isinstance(rows, list) or len(rows) > 32:
+            raise ControlError("关键词最多 32 条", 400)
+        cleaned = []
+        for i, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise ControlError(f"关键词第 {i+1} 行格式无效", 400)
+            needle = row.get("match")
+            act = row.get("action")
+            if not isinstance(needle, str) or not isinstance(act, str):
+                raise ControlError(f"关键词第 {i+1} 行需为字符串", 400)
+            needle, act = needle.strip(), act.strip()
+            if not needle or not act:
+                raise ControlError(f"关键词第 {i+1} 行不能为空", 400)
+            if len(needle) > 64 or len(act) > 64:
+                raise ControlError(f"关键词第 {i+1} 行过长", 400)
+            if any(c in needle or c in act for c in "\r\n\0"):
+                raise ControlError(f"关键词第 {i+1} 行含非法字符", 400)
+            cleaned.append({"match": needle, "action": act})
+        command["keywords"] = cleaned
+    if action == "set-bobo-expression":
+        # Same range as bobo::EXPRESSION_AMP_MAX: 1.0 = designed, 2.0 saturates servo-safe clamp.
+        amp = numeric(command["expression_amp"], 0.0, 2.0)
+        command["expression_amp"] = round(float(amp) * 20) / 20.0
     password = command.get("sudo_password")
     if password is not None and (not isinstance(password, str) or not 0 < len(password) <= 256
                                 or any(c in password for c in "\r\n\0")):
@@ -168,7 +303,7 @@ class ServiceTransport:
         return reply["result"]
 
     def manage(self, *args, password=None, privileged=True, record_output=True):
-        """One fixed installed helper; shell arguments are quoted, credentials use stdin."""
+        """R17 helper for model, pad and reconnect commands. Mode switching does not use this."""
         return self._manage(["/bin/bash", "/opt/robot/feetech-ft5-r5/service.sh", *args], password, privileged, record_output=record_output)
 
     def repair_gamepad(self, address, operation, password=None, progress=None):
@@ -180,6 +315,43 @@ class ServiceTransport:
     def diagnose_service(self, password=None):
         source = ROOT.joinpath('startup_diagnostic.py').read_text(encoding='utf-8')
         return self._manage(['python3', '-u', '-c', source], password)
+
+    def write_bobo_keywords(self, keywords, password=None):
+        """Persist BoBo STT keyword→action table; robotd hot-reloads the JSON."""
+        # Embed the object once: dumps→Python string→loads must yield a dict, not a
+        # double-encoded JSON string (that made data.get blow up on the duck).
+        payload = json.dumps({"keywords": keywords}, ensure_ascii=False)
+        script = (
+            "import json,os,pathlib\n"
+            f"data=json.loads({payload!r})\n"
+            "if not isinstance(data, dict):\n"
+            "  raise SystemExit('bobo keywords payload must be an object')\n"
+            "path=pathlib.Path('/var/lib/robot/bobo-keywords.json')\n"
+            "path.parent.mkdir(parents=True,exist_ok=True)\n"
+            "tmp=path.with_suffix('.tmp')\n"
+            "tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+chr(10),encoding='utf-8')\n"
+            "os.replace(tmp,path)\n"
+            "print(json.dumps({'ok':True,'path':str(path),'count':len(data.get('keywords',[]))},ensure_ascii=False))\n"
+        )
+        return self._manage(['python3', '-u', '-c', script], password)
+
+    def write_bobo_expression(self, expression_amp, password=None):
+        """Persist BoBo head-expression amp; robotd hot-reloads within ~2s."""
+        amp = float(expression_amp)
+        script = (
+            "import json,os,pathlib\n"
+            f"amp=float({amp!r})\n"
+            "if not (0.0 <= amp <= 2.0):\n"
+            "  raise SystemExit('expression_amp out of range')\n"
+            "path=pathlib.Path('/var/lib/robot/bobo-expression.json')\n"
+            "path.parent.mkdir(parents=True,exist_ok=True)\n"
+            "data={'expression_amp': round(amp, 3)}\n"
+            "tmp=path.with_suffix('.tmp')\n"
+            "tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2)+chr(10),encoding='utf-8')\n"
+            "os.replace(tmp,path)\n"
+            "print(json.dumps({'ok':True,'path':str(path),'expression_amp':data['expression_amp']},ensure_ascii=False))\n"
+        )
+        return self._manage(['python3', '-u', '-c', script], password)
 
     def _manage(self, command, password=None, privileged=True, progress=None, record_output=True, output_handler=None, result_format='auto'):
         supplied = password is not None
@@ -348,7 +520,21 @@ class ServiceTransport:
                 pass
 
     def switch_mode(self, target, password=None):
-        return {**self.manage("enable" if target == "motion" else "disable", password=password), "mode": target}
+        """Motion is the installed unit. Commissioning restarts the same robotd with --commissioning.
+
+        An R17 board that still has service.sh keeps that helper. An R18 board has
+        /opt/robot/daemon/current/bin/robotd and no feetech-ft5-r5 tree.
+        """
+        if target not in ("commissioning", "motion"):
+            raise ControlError("服务模式无效", 400)
+        result = self._manage(
+            ["/bin/bash", "-c", SWITCH_MODE_SCRIPT, "switch-mode", target],
+            password=password,
+        )
+        if isinstance(result, dict):
+            result["mode"] = target
+            return result
+        return {"message": str(result), "mode": target}
 
 
 
@@ -568,7 +754,7 @@ class ServiceController:
                 if self.busy or self.stopping and action != 'upgrade-service': raise ControlError("已有操作执行中，请等待反馈或停止并松开")
                 snapshot = self.store.snapshot()
                 report = snapshot.get("bus", {})
-                recovery = action in {"repair-gamepad", "reconnect-service", "upgrade-service", "set-action-scale"} or action == 'switch-mode'
+                recovery = action in {"repair-gamepad", "reconnect-service", "upgrade-service", "set-action-scale", "set-bobo-keywords", "set-bobo-expression"} or action == 'switch-mode'
                 if not recovery and not supports_feature(report, "supported"): raise ControlError("等待适配的正式服务提供状态")
                 # HAT recovery and deployment must work without motor feedback.
                 if not recovery and not snapshot.get("service_sample_fresh"):
@@ -588,13 +774,14 @@ class ServiceController:
                             snapshot.get("calibrated_count") != 15 or native.get("imu_mount_verified") is not True
                             and report.get("imu_mount_verified") is not True):
                         raise ControlError("请先完成 15 个关节标定和 IMU 安装确认", 409)
-                elif action in {"reconnect-service", "upgrade-service", "set-pad-settings", "set-action-scale"}:
+                elif action in {"reconnect-service", "upgrade-service", "set-pad-settings", "set-action-scale", "set-bobo-keywords", "set-bobo-expression"}:
                     if action == 'upgrade-service' and command['firmware'] != 'bundled':
                         prepared=self.prepared_firmware
                         if not prepared or prepared.owner!=client or not secrets.compare_digest(prepared.token,command['firmware']):
                             raise ControlError('本地固件校验已失效，请重新选择 ZIP',409)
                     if action == 'set-pad-settings' and not supports_feature(report, 'live_pad_settings'):raise ControlError('请先安装本版配套服务，再使用运行中幅度设置',409)
-                    if action != 'upgrade-service'  and supports_feature(report, "supported") and not supports_feature(report, "management"):
+                    # Keyword save is a plain SSH file write; it does not need the R17 management profile.
+                    if action not in {'upgrade-service', 'set-bobo-keywords', 'set-bobo-expression'} and supports_feature(report, "supported") and not supports_feature(report, "management"):
                         raise ControlError("连接与模型管理需要配套 R17 服务", 409)
                 elif action == 'repair-gamepad':
                     pass  # Bluetooth recovery needs SSH, not fresh motor/IMU telemetry.
@@ -619,7 +806,7 @@ class ServiceController:
                 self.stopping = True
                 if action in {"reboot", "shutdown"}: self.power_boot_id = self.store.snapshot().get("system", {}).get("boot_id")
                 self.cancel_epoch += 1
-            self.store.service_operation = action != "set-pad-settings"
+            self.store.service_operation = action not in {"set-pad-settings", "set-bobo-keywords", "set-bobo-expression"}
             job = {"action": action, "status": "running", "at": time.time(), "command": command}
             self.job, self.error = job, ""
             self.store.record_service_command(job)
@@ -631,7 +818,7 @@ class ServiceController:
         restarting=getattr(self.store,'robotd_restarting',None)
         restart=command['action'] in {'switch-mode','upgrade-service','reconnect-service','set-action-scale'}
         log=getattr(self.store,'system_log',None)
-        labels={'switch-mode':'服务模式切换','upgrade-service':'固件安装','reconnect-service':'重启固件','set-action-scale':'动作缩放','set-pad-settings':'手柄幅度设置','init':'回 HOME','repair-gamepad':'手柄连接修复','relax':'停止并松开','reboot':'重启 Zero','shutdown':'关闭 Zero','move':'关节移动','center':'整组居中','capture':'关节标定','verify-imu':'IMU 方向保存'}
+        labels={'switch-mode':'服务模式切换','upgrade-service':'固件安装','reconnect-service':'重启固件','set-action-scale':'动作缩放','set-pad-settings':'手柄幅度设置','set-bobo-keywords':'BoBo 关键词','set-bobo-expression':'BoBo 头部幅度','init':'回 HOME','repair-gamepad':'手柄连接修复','relax':'停止并松开','reboot':'重启 Zero','shutdown':'关闭 Zero','move':'关节移动','center':'整组居中','capture':'关节标定','verify-imu':'IMU 方向保存'}
         label=labels.get(command['action'],command['action'])
         if restart and restarting is not None:restarting.set()
         try:
@@ -720,6 +907,10 @@ class ServiceController:
                 answer = self.transport.manage("pad-settings", str(command["mouth_percent"]), str(command["head_rad"]), password=sudo_password)
             elif command["action"] == "set-action-scale":
                 answer = self.transport.manage("action-scale", command["model"], str(command["scale"]), password=sudo_password)
+            elif command["action"] == "set-bobo-keywords":
+                answer = self.transport.write_bobo_keywords(command["keywords"], password=sudo_password)
+            elif command["action"] == "set-bobo-expression":
+                answer = self.transport.write_bobo_expression(command["expression_amp"], password=sudo_password)
             elif command["action"] in {"reboot", "shutdown"}:
                 answer = self.transport.power(command["action"], password=sudo_password)
                 if not isinstance(answer,dict) or answer.get('scheduled') is not True :

@@ -25,10 +25,11 @@ The shell models, HAT driver board, IMU module, and firmware versions come from 
 
 - Two shell variants: **XL330-M288-T** (original Dynamixel servo) and **HD-1910-C001** (Feetech servo);
 - A Radxa ZERO 3W HAT driver board and an IMU module that sits on the servo bus (both imu_to_dxl and imu_to_feetech adaptations are included);
-- Robot firmware based on official 0.15.1 plus the kissqy Feetech adaptation, a robot console, and a training console;
-- A bill of materials, servo debugging tools, and Radxa ZERO 3W documentation.
+- Robot firmware based on official 0.15.1 plus the kissqy Feetech adaptation, a robot console, a phone console APK skeleton, and a training console;
+- BoBo cloud voice chat (OTA/WebSocket), emotion-driven head motion, and STT keyword triggers;
+- A bill of materials, servo debugging tools, and board docs (Radxa + Orange Pi).
 
-> **Status:** The HD-1910-C001 shell has been printed and assembled successfully. HAT Rev.A and the IMU board (imu_to_dxl) are up to date. Firmware and console are R17 V167 (console 1.0.167) with control.43. The training console now lives in `04-TrainCode/training-console/`.
+> **Status:** The HD-1910-C001 shell has been printed and assembled successfully. Boards supported: **Radxa ZERO 3W** and **Orange Pi Zero 2W**. Firmware/console are R17 V167 (console 1.0.167) + control.43; clean-board install uses the **R18** pack. BoBo voice chat (R3 / menu), speak-time head expression amp, and STT keyword actions are wired into the console. Training console lives in `04-TrainCode/training-console/` (including splits).
 
 ## Goals
 
@@ -207,9 +208,9 @@ Holds the standalone Python training console `training-console/` (Microduck Trai
 3. **Fabricate PCBs** — open the `.epro2` projects under `02-PCB/01-IMU/` and `02-PCB/02-HAT/` with LCEDA Pro and order.
 4. **Flash the IMU** — flash the IMU firmware from `02-PCB/01-IMU/firmware/imu_to_feetech_ReVA_FT6_SYNC15_UART_IRQ_v1.bin`.
 5. **Assemble** — mount servos, HAT, IMU, battery, and shell; set servo IDs and zero positions with the tool in `06-tools/02-feite/`.
-6. **Prepare the system and firmware** — download the system image and flash the TF card as described in `03-DuckCode/microduck-hd1910/README.en.md`; existing systems can install the bundled firmware from the console.
-7. **Run** — start `03-DuckCode/microduck-hd1910/firmware/console/start.cmd` (`start.command` on macOS/Linux), enter `user@robot-ip` and SSH credentials, then use **HOME → hold → walk**.
-8. **Train (optional)** — start `04-TrainCode/training-console/start-training.cmd` (or `start-training.command`) and deploy the resulting policy.
+6. **Prepare the system and firmware** — clean boards: R18 (`firmware/R18-TF卡安装.md` / `R18-使用方法.md`); existing systems can upgrade from the console or hot-swap `robotd` via `build-robotd-only`.
+7. **Run** — start `firmware/console/start.cmd` (or `start.command`), enter `user@robot-ip`, then **HOME → hold → walk**. For BoBo, enable `[bobo]`/`[audio]` and press R3 (or webpad R3).
+8. **Train (optional)** — start `04-TrainCode/training-console/start-training.cmd` and deploy (including splits and other new tasks).
 
 > Every robot needs its own joint zero positions, directions, limits, and IMU calibration. Do not reuse another robot's calibration.
 
@@ -217,13 +218,15 @@ Holds the standalone Python training console `training-console/` (Microduck Trai
 
 | Item | Current version / model | Location |
 |------|-------------------------|----------|
-| Robot firmware | Official 0.15.1 · control.43 · API40 | `03-DuckCode/microduck-hd1910/firmware/` |
-| Robot console | R17 V167 (1.0.167) | `03-DuckCode/microduck-hd1910/firmware/console/` |
-| Training console | R1.5.27 | `04-TrainCode/training-console/` |
+| Robot firmware | Official 0.15.1 · control.43 · API40 · BoBo voice | `03-DuckCode/microduck-hd1910/firmware/` |
+| Clean-board install | R18 (`pack-R18` / `install-R18.sh`) | `firmware/R18-使用方法.md` |
+| Robot console | R17 V167 (1.0.167) + BoBo panel | `firmware/console/` |
+| Phone console | Flutter `console-apk` | `03-DuckCode/microduck-hd1910/console-apk/` |
+| Training console | R1.5.27 + splits tasks | `04-TrainCode/training-console/` |
 | HAT driver board | Rev.A (2026-10-15) | `02-PCB/02-HAT/` |
 | IMU module | imu_to_dxl (2026-10-15) | `02-PCB/01-IMU/` |
 | Shell | XL330 / HD-1910 variants | `01-3DPrint/` |
-| Mainboard | Radxa ZERO 3W (2 GB, no eMMC) | see `05-BOM/MicroDuck购买清单.md` |
+| Mainboard | Radxa ZERO 3W or Orange Pi Zero 2W | `05-BOM/` |
 
 ## Acknowledgments
 

@@ -84,6 +84,6 @@ const root=path.resolve(__dirname,'..');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),'no page horizontal overflow at 1280');
   await page.locator('#parameters').screenshot({path:path.join(root,'docs','R1.5.23-training-controls-1280.png')});
   assert.deepEqual(errors,[]);assert.deepEqual(gates,[]);
-  console.log('TRAINING_1521_UI_OK: 15 profiles; new P5/scale1/no EMA; 37 physical variants; legacy mapping preserved; immutable queue; 4K/1280; no probes or JS errors');
+  console.log('TRAINING_1521_UI_OK: 16 profiles; new P5/scale1/no EMA; 39 physical variants; legacy mapping preserved; immutable queue; 4K/1280; no probes or JS errors');
  }finally{if(browser)await browser.close();fixture.kill();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -54,7 +54,7 @@ class ExtendedDeploymentTests(unittest.TestCase):
                 self.assertFalse(contract['runtime_compatibility']['r148_importer']['task_allowlisted'])
 
     def test_phase_route_uses_actual_period_not_episode_or_stale_docstring(self):
-        for role, period in (('ground_pick', 4.0), ('crouch', 5.0), ('spin', 4.0)):
+        for role, period in (('ground_pick', 4.0), ('crouch', 5.0), ('spin', 4.0), ('splits', 6.0)):
             with self.subTest(role=role):
                 contract, manifest = exported(role)
                 self.assertEqual(contract['slot'], 'ground_pick')

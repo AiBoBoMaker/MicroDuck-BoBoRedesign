@@ -166,11 +166,11 @@ def enhance(Base,save_json):
                 normalized['version'] = self.recipe.get('version', 0) + 1
                 self.recipe = normalized
                 save_json(self.directory/'recipe.json', self.recipe)
-            if (self.recipe.get('robot') or {}).get('servo_mass_model') == 'hd1910_820g_v1':
+            if (self.recipe.get('robot') or {}).get('servo_mass_model') in ('hd1910_820g_v1', 'hd1910_battery150_v1'):
                 previous_mass = copy.deepcopy(self.recipe)
                 if migrate_battery_mass(self.recipe):
                     self.recipe['version'] = previous_mass.get('version', 0) + 1
-                    save_json(self.directory/'recipe-before-battery150.json', previous_mass)
+                    save_json(self.directory/'recipe-before-battery100.json', previous_mass)
                     save_json(self.directory/'recipe.json', self.recipe)
             routed=task_profile(self.profile)
             if routed != self.profile:self.set_execution_profile(routed)

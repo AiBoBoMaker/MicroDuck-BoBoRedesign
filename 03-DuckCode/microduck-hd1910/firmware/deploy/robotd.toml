@@ -308,8 +308,11 @@ mode = "walk"
 # enabled = true
 
 # ALSA playback device — the TLV320AIC3104 codec that setup-board.sh brings up. The mic
-# worker captures from "<device>,0".
+# worker captures from "<device>,0" unless capture_pcm is set.
 # device = "plughw:aic3104"
+# Orange Pi HAT: I2S slots are 32-bit and speech is on the left channel — install
+# deploy/audio/asound-opi-aic3104.conf as /etc/asound.conf and set:
+# capture_pcm = "duckmix_cap"
 
 # Where the voice bank lives.
 # bank = "/var/lib/robot/sounds"
@@ -340,10 +343,32 @@ mode = "walk"
 # Off until a server is named. The duck's own quacks give the speaker up for the call.
 # Petting detection and this call share the microphone; leave pet_detect off while
 # a call should be able to hear.
+#
+# `url` is either a websocket (`ws://` / `wss://`) or an OTA HTTP(S) endpoint that
+# returns JSON with `websocket.url` (same flow as py-xiaozhi). Prefer the OTA URL
+# so the device registers firmware version before chatting. A successful connect
+# plays two short beeps, then listens; VAD / end-of-utterance stay on the server.
 # enabled = false
-# url = "wss://api.tenclass.net/xiaozhi/v1/"
+# url = "http://music.ota.bobomaker.com/xiaozhi/ota/"
 # token = ""
 # client_id_path = "/var/lib/robot/bobo-client-id"
+# While TTS plays, map server llm.emotion to sparse neck/head motion (not every frame).
+# expression = true
+# expression_amp = 1.0
+# Amp 1.0 = designed; max 2.0. Each axis is hard-clamped to ±0.18 rad (servo-safe).
+# Console BoBo 语音 panel can also write /var/lib/robot/bobo-expression.json
+# {"expression_amp": 1.5}, which overrides this value when present (hot-reload ~2s).
+#
+# STT keyword → action. Only while the duck is sitting or standing idle (not mid-skill).
+# action is a head preset (preset:sway / preset:nod / preset:shake_hard / preset:laugh)
+# or a robot.do skill name. Console BoBo 语音 panel can also write
+# /var/lib/robot/bobo-keywords.json, which overrides this list when present.
+# [[bobo.keyword]]
+# match = "点头"
+# action = "preset:nod"
+# [[bobo.keyword]]
+# match = "翻个跟头"
+# action = "roulade"
 
 [theremin]
 # The ToF theremin: a hand's distance in front of the beak becomes a note, and the mouth

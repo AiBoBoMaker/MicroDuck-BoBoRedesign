@@ -347,13 +347,18 @@ REW={
  'air_time':('抬脚节奏','鼓励脚离地时间落入期望区间'), 'foot_clearance':('脚离地间隙','让移动的脚保持合适离地高度'),
  'foot_swing_height':('摆动脚高度','约束摆动阶段的抬脚高度'), 'foot_slip':('避免打滑','惩罚着地脚在地面上滑动'),
  'self_collisions':('避免自碰撞','惩罚机器人不同部分相撞'), 'head_pose_tracking':('头部跟随','鼓励头部跟随目标姿态'),
- 'body_pose_tracking':('身体姿态跟随','鼓励身体的位置和角度接近目标'), 'head_pose_bias':('抑制头部长期偏差','减少头部相对命令持续偏在一边的情况')}
+ 'body_pose_tracking':('身体姿态跟随','鼓励身体的位置和角度接近目标'), 'head_pose_bias':('抑制头部长期偏差','减少头部相对命令持续偏在一边的情况'),
+ 'splits_pose':('大劈叉腿部姿态','按相位跟踪站立→开腿→落地劈叉→起立的腿部关键帧'),
+ 'splits_pose_l1':('大劈叉腿部姿态偏差','对大劈叉腿部关键帧的绝对偏差惩罚'),
+ 'splits_toes':('大劈叉绷脚尖','落地劈叉阶段鼓励脚踝指向目标绷脚尖姿态'),
+ 'splits_neck':('大劈叉颈部姿态','大劈叉过程中保持头颈关键帧'),
+}
 EVENT={
 'set_ground_state':'倒地姿态初始化','random_prone_init':'混合倒地/低姿态初始化','topple_push':'强推扰/推倒训练','reset_base':'重置机身位置/方向','reset_robot_joints':'重置关节姿态','push_robot':'随机推扰','foot_friction':'足底摩擦随机化',
 'encoder_bias':'编码器零位误差','base_com':'基座重心偏移','expand_bam_friction_fields':'展开每环境BAM摩擦数据',
 'reset_action_history':'清空旧动作历史','randomize_com':'躯干重心随机化','randomize_head_com':'头部重心随机化',
 'randomize_mass_inertia':'质量/惯量联合随机化','randomize_joint_friction':'电机摩擦随机化','randomize_armature':'转子惯量随机化'}
-CURR={'action_rate_weight':'动作平滑惩罚课程','standing_envs':'站立占比课程','head_pose_range':'头部动作范围课程','body_pose_range':'身体姿态范围课程','com_range':'躯干重心范围课程','head_com_range':'头部重心范围课程','head_pose_bias_weight':'头部偏差惩罚课程'}
+CURR={'action_rate_weight':'动作平滑惩罚课程','standing_envs':'站立占比课程','head_pose_range':'头部动作范围课程','body_pose_range':'身体姿态范围课程','com_range':'躯干重心范围课程','head_com_range':'头部重心范围课程','head_pose_bias_weight':'头部偏差惩罚课程','split_scale':'大劈叉深度课程','splits_period':'大劈叉周期课程'}
 OBJ={'joint':'关节','body':'刚体','geom':'碰撞/视觉几何体','site':'模型站点','actuator':'执行器','tendon':'肌腱/耦合结构','camera':'相机','light':'灯光','material':'材质','pair':'接触对'}
 JOINT={'hip_yaw':'髋偏航','hip_roll':'髋侧倾','hip_pitch':'髋俯仰','knee':'膝','ankle':'踝','neck_pitch':'颈俯仰','head_pitch':'头俯仰','head_yaw':'头偏航','head_roll':'头侧倾'}
 
@@ -398,7 +403,7 @@ def help_for(row):
   ispos='joint_pos' in p
   definition=(label+('默认角/Home' if ispos else '初始角速度'),('模型启动时的参考关节角，动作偏置/相对关节观测会使用它；不是编码器zero_raw。' if ispos else '复位时的关节角速度；0表示静止起步。'),'rad' if ispos else 'rad/s')
   if 'terrain' in p:definition=('地形实体的通用关节初值','这是实体框架保留的默认关节初值；当前平面地形没有驱动关节，不需要按实机Home填写。','rad' if ispos else 'rad/s')
- elif any(name in p[:-1] for name in ('sitting_joint_overrides','target_overrides','sit_overrides','tuck_overrides','crouch_pose','stand_pose')):
+ elif any(name in p[:-1] for name in ('sitting_joint_overrides','target_overrides','sit_overrides','tuck_overrides','crouch_pose','stand_pose','open_pose','floor_pose','back_pose','forward_pose')):
   joint=RUNTIME_JOINTS[int(k)] if k.isdigit() and int(k)<len(RUNTIME_JOINTS) else k
   label=('左' if joint.startswith('left_') else '右' if joint.startswith('right_') else '')+next((cn for en,cn in JOINT.items() if en in joint),joint)
   definition=(label+'参考关节角','所属初始化姿态或奖励目标指定的关节角；对应 '+joint+'，不是编码器零位或实时反馈角。','rad')
@@ -596,6 +601,16 @@ for _key, _definition in {
  'descent_end':('下降阶段结束相位','周期中从站姿过渡到低位的结束位置，按整个周期的比例表示。','0～1'),
  'hold_end':('低位保持结束相位','在低位保持到这个相位后开始返回。','0～1'),
  'rise_end':('返回站姿结束相位','到这个相位完成上升，其余时间保持高位。','0～1'),
+ 'open_end':('开腿阶段结束相位','大劈叉从站立过渡到开腿姿态的结束位置，按整个周期比例表示。','0～1'),
+ 'sit_end':('落地劈叉结束相位','开腿过渡到落地劈叉姿态的结束位置，之后开始起立。','0～1'),
+ 'open_pose':('开腿关键帧','大劈叉开腿阶段的目标关节角；课程深度会在站立与此帧之间插值。','rad'),
+ 'floor_pose':('落地劈叉关键帧','大劈叉落地阶段的目标关节角，含绷脚尖；课程深度会在站立与此帧之间插值。','rad'),
+ 'stand_pose':('站立关键帧','大劈叉起始/结束的站立参考关节角。','rad'),
+ 'scale_attr':('深度课程属性名','环境上保存当前劈叉深度系数的属性名称。','名称'),
+ 'attr_name':('课程写入属性名','课程函数写入环境的属性名称。','名称'),
+ 'scale_stages':('深度课程阶段','按训练步数逐步提高劈叉深度系数的阶段表。','阶段表'),
+ 'period_stages':('周期课程阶段','按训练步数逐步缩短相位周期的阶段表。','阶段表'),
+ 'joint_names':('参与关节名称','本项奖励只对这些关节名称计算姿态误差。','关节名列表'),
  'period':('动作相位周期','完整相位循环所需时间，运行端也必须使用对应周期。','s'),
  'randomize_phase':('随机初始相位','复位时随机各环境相位以分散样本；false从相位0开始。','开关'),
  'midroll_prob':('翻滚中途起始权重','复位时从翻滚中间姿态开始的相对权重，与站姿权重共同归一化。','相对权重'),

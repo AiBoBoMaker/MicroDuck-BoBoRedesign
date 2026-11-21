@@ -8,6 +8,7 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+*.iml
 
 # Build outputs
 build/
@@ -15,16 +16,29 @@ dist/
 out/
 __pycache__/
 *.pyc
+*.o
+target/
+.dart_tool/
+.flutter-plugins-dependencies
 
 # 3D printing slicer profiles (keep templates, ignore generated)
 *.gcode
 *.3mf
 
-# RL training outputs
+# RL training outputs / local model packs
 runs/
 checkpoints/
 *.pt
 *.onnx
+04-TrainCode/output/
+04-TrainCode/training-console/docs/**/*.png
+03-DuckCode/microduck-hd1910/firmware/Microduck-R18.zip
+03-DuckCode/microduck-hd1910/console-apk/android/local.properties
+03-DuckCode/microduck-hd1910/console-apk/android/.gradle/
+
+# Reference clones / local scratch (not product source)
+03-DuckCode/microduck-hd1910/firmware/cankao/
+2026-11-15/
 
 # Environment files
 .env

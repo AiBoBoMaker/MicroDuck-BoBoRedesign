@@ -1,0 +1,161 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * TLV320AIC3104 on Robot HAT — Orange Pi Zero 2W (H616/H618).
+ *
+ * Header I2S is I2S0 on PI0..PI4. That TDM belongs to ahub0
+ * (apb_num=0, tdm_num=0, DMA 3). Stock DT only ships ahub1 for HDMI
+ * (tdm_num=1) — binding the HAT codec there registers a card but
+ * hw_params returns -EINVAL.
+ *
+ * This overlay:
+ *   1) pinmuxes PI0..PI4 as i2s0
+ *   2) adds ahub0_plat + ahub0_mach named "aic3104" → plughw:aic3104
+ *   3) leaves ahub1 / HDMI alone
+ *
+ * use_overlays=apb2-300m aic3104-h616
+ */
+
+/ {
+	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618", "allwinner,sun50i-h616";
+
+	fragment@0 {
+		target-path = "/soc/pinctrl@300b000";
+		__overlay__ {
+			ahub_daudio0_pins_a: ahub-daudio0-clk {
+				pins = "PI0", "PI1", "PI2";
+				function = "i2s0";
+				drive-strength = <0x14>;
+				bias-disable;
+			};
+			ahub_daudio0_pins_b: ahub-daudio0-dout {
+				pins = "PI3";
+				function = "i2s0_dout0";
+				drive-strength = <0x14>;
+				bias-disable;
+			};
+			ahub_daudio0_pins_c: ahub-daudio0-din {
+				pins = "PI4";
+				function = "i2s0_din0";
+				drive-strength = <0x14>;
+				bias-disable;
+			};
+			ahub_daudio0_pins_d: ahub-daudio0-sleep {
+				pins = "PI0", "PI1", "PI2", "PI3", "PI4";
+				function = "gpio_in";
+				drive-strength = <0x14>;
+				bias-disable;
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			reg_aic_3v3: regulator-aic-3v3 {
+				compatible = "regulator-fixed";
+				regulator-name = "aic3104-3v3";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+			reg_aic_1v8: regulator-aic-1v8 {
+				compatible = "regulator-fixed";
+				regulator-name = "aic3104-1v8";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+			/*
+			 * Informational only for the codec clk framework.
+			 * Real MCLK/sysclk comes from sunxi mclk-fs * rate
+			 * (256 * 48000 = 12288000) via set_sysclk.
+			 */
+			aic3104_mclk: aic3104-mclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <12288000>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/soc/i2c@5002400";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			aic3104_codec: codec@18 {
+				/* Real part is TLV320AIC3104IRHBR; Mic2* mixer names match pin 16 MIC2R. */
+				compatible = "ti,tlv320aic3104";
+				reg = <0x18>;
+				#sound-dai-cells = <0>;
+				AVDD-supply = <&reg_aic_3v3>;
+				DRVDD-supply = <&reg_aic_3v3>;
+				IOVDD-supply = <&reg_aic_3v3>;
+				DVDD-supply = <&reg_aic_1v8>;
+				clocks = <&aic3104_mclk>;
+				clock-names = "mclk";
+				/* Analog MEMS on MIC2R usually needs MICBIAS (pin 15) through the
+				 * series R network. 1 = 2.0 V (try before 2.5 V — 2 buzzed on this HAT). */
+				ai3x-micbias-vg = <1>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/soc";
+		__overlay__ {
+			ahub0_plat: ahub0_plat {
+				#sound-dai-cells = <0>;
+				compatible = "allwinner,sunxi-snd-plat-ahub";
+				apb_num = <0>;
+				dmas = <&dma 3>, <&dma 3>;
+				dma-names = "tx", "rx";
+				playback_cma = <128>;
+				capture_cma = <128>;
+				tx_fifo_size = <128>;
+				rx_fifo_size = <128>;
+				tdm_num = <0>;
+				tx_pin = <0>;
+				rx_pin = <0>;
+				pinctrl-names = "default", "sleep";
+				pinctrl-used;
+				pinctrl-0 = <&ahub_daudio0_pins_a>,
+					    <&ahub_daudio0_pins_b>,
+					    <&ahub_daudio0_pins_c>;
+				pinctrl-1 = <&ahub_daudio0_pins_d>;
+				status = "okay";
+			};
+
+			ahub0_mach_aic: ahub0-mach-aic {
+				compatible = "allwinner,sunxi-snd-mach";
+				soundcard-mach,name = "aic3104";
+				soundcard-mach,format = "i2s";
+				soundcard-mach,frame-master = <&aic3104_cpu>;
+				soundcard-mach,bitclock-master = <&aic3104_cpu>;
+				soundcard-mach,slot-num = <2>;
+				/* Keep 32: native capture is S32_LE; S16 via plughw misreads
+				 * slots (DC hash). Use deploy/audio/asound-opi-aic3104.conf
+				 * pcm.duckmix_cap to take the left S32 channel for BoBo. */
+				soundcard-mach,slot-width = <32>;
+				status = "okay";
+
+				aic3104_cpu: soundcard-mach,cpu {
+					sound-dai = <&ahub0_plat>;
+					soundcard-mach,pll-fs = <4>;
+					/* Must be non-zero: tlv320aic3x hw_params
+					 * needs set_sysclk (MCLK = mclk-fs * rate)
+					 * or PLL setup returns -EINVAL. */
+					soundcard-mach,mclk-fs = <256>;
+				};
+
+				soundcard-mach,codec {
+					sound-dai = <&aic3104_codec>;
+				};
+			};
+		};
+	};
+};

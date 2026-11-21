@@ -14,6 +14,7 @@ import time
 
 NAME = 'GameSir-Nova 2 Lite'
 VIRTUAL = 'Xbox 360 Controller (GameSir Nova 2 Lite)'
+# HID UUID kept for docs/tests; bluetoothctl connect no longer takes a profile arg.
 HID = '00001124-0000-1000-8000-00805f9b34fb'
 MAC = r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}'
 INPUTS = ('gamesir-xboxd.service', 'padd.service')
@@ -143,7 +144,7 @@ class BluetoothSession:
                 text = ''
             if 'Enter PIN code' in text or 'Enter passkey' in text or 'Confirm passkey' in text:
                 raise RepairError('手柄请求了 PIN/密码确认。请核对 A+HOME 模式后重新修复。')
-            if re.search(r'Failed|not available|No default controller|Invalid command|AuthenticationCanceled', text):
+            if re.search(r'Failed|not available|No default controller|Invalid command|AuthenticationCanceled|Too many arguments', text):
                 raise RepairError(f'{command}：{text.strip()[-900:]}')
         raise RepairError(f'{command} 等待回执超时：{text.strip()[-500:]}')
 
@@ -172,9 +173,11 @@ def connected(address):
 def connect_hid(session, address):
     # Pair() can leave the temporary ACL link connected without opening HID.
     # Connected: yes alone must never skip this explicit profile connection.
+    # Current bluetoothctl only accepts `connect <address>` — the old
+    # `connect <address> <HID UUID>` form fails with "Too many arguments".
     emit('bluetooth', '使用已完成的配对连接 HID 输入通道一次。', 'waiting')
     try:
-        session.command('connect ' + address + ' ' + HID,
+        session.command('connect ' + address,
                         ['Connection successful', 'org.bluez.Error.AlreadyConnected'], timeout=20)
     except (RepairError, subprocess.TimeoutExpired) as exc:
         raise RepairError('HID 输入连接失败：' + str(exc) + '；目标配对已保留，未重启 robotd。',

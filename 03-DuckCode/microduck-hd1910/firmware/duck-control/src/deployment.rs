@@ -103,6 +103,7 @@ pub fn task_slot(task: &str) -> Result<&'static str, String> {
     } else if task.starts_with("Mjlab-StandUp-") {
         Ok("stand")
     } else if task.starts_with("Mjlab-GroundPick-")
+        || task.starts_with("Mjlab-Splits-")
         || matches!(task, "Mjlab-RollerCrouch-Flat-Backlash-MicroDuck" | "Mjlab-Spin-Flat-MicroDuck")
     {
         Ok("ground_pick")
@@ -225,6 +226,7 @@ impl Contract {
                     | "Mjlab-StandUp-Rough-Backlash-MicroDuck"
                     | "Mjlab-VelStand-Rough-Backlash-MicroDuck"
                     | "Mjlab-GroundPick-Flat-Backlash-MicroDuck"
+                    | "Mjlab-Splits-Flat-Backlash-MicroDuck"
                     | "Mjlab-Velocity-Swizzle-Backlash-MicroDuck"
                     | "Mjlab-RollerCrouch-Flat-Backlash-MicroDuck"
                     | "Mjlab-BallKickLeft-Flat-Backlash-MicroDuck"
@@ -252,6 +254,7 @@ impl Contract {
                     "Mjlab-VelStand-Flat-MicroDuck"
                         | "Mjlab-GroundPick-Flat-MicroDuck"
                         | "Mjlab-GroundPick-Flat-Backlash-MicroDuck"
+                        | "Mjlab-Splits-Flat-Backlash-MicroDuck"
                         | "Mjlab-Roulade-Flat-MicroDuck"
                         | "Mjlab-StandUp-Flat-MicroDuck"
                         | "Mjlab-Velocity-Rough-Backlash-MicroDuck"
@@ -1011,6 +1014,23 @@ mod tests {
         assert!(c.head_padding && c.body_padding);
         let walk = Contract::parse(&contract()).unwrap();
         assert_eq!(c.home, walk.home);
+    }
+
+    #[test]
+    fn splits_export_maps_to_ground_pick_like_phase_skills() {
+        assert_eq!(
+            task_slot("Mjlab-Splits-Flat-Backlash-MicroDuck").unwrap(),
+            "ground_pick"
+        );
+        assert_eq!(task_slot("Mjlab-Splits-Flat-MicroDuck").unwrap(), "ground_pick");
+        let mut v = new_skill_contract("ground_pick");
+        v["task"] = serde_json::json!("Mjlab-Splits-Flat-Backlash-MicroDuck");
+        v["role"] = serde_json::json!("splits");
+        v["commands"]["twist"]["period"] = serde_json::json!(8.0);
+        v["required_policy_settings"]["ground_pick_period"] = serde_json::json!(8.0);
+        let c = Contract::parse(&v).expect("splits must reuse the ground_pick phase adapter");
+        assert_eq!(c.slot, "ground_pick");
+        assert_eq!(c.command_period_s, Some(8.0));
     }
 
     fn new_skill_contract(slot: &str) -> Value {

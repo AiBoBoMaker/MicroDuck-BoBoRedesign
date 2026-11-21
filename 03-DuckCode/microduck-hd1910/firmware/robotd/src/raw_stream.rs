@@ -439,11 +439,63 @@ async fn worker(state: Arc<RobotState>) {
                 #[serde(skip_serializing_if = "Option::is_none")]
                 calibration: Option<&'a Value>,
             }
+            let mut system = crate::telemetry_system::snapshot();
+            if let Some(map) = system.as_object_mut() {
+                let code = state.voice_phase.load(Ordering::Relaxed);
+                let phase = match code {
+                    1 => "connecting",
+                    2 => "listening",
+                    3 => "speaking",
+                    _ => "idle",
+                };
+                let emotion =
+                    bobo::Emotion::from_code(state.voice_emotion.load(Ordering::Relaxed));
+                let keywords: Vec<_> = state
+                    .bobo_keywords
+                    .load()
+                    .iter()
+                    .map(|r| {
+                        json!({
+                            "match": r.needle,
+                            "action": r.action,
+                        })
+                    })
+                    .collect();
+                let presets: Vec<_> = bobo::PresetGesture::ALL
+                    .iter()
+                    .map(|g| {
+                        json!({
+                            "id": g.id(),
+                            "label": g.label_zh(),
+                        })
+                    })
+                    .collect();
+                map.insert(
+                    "bobo".into(),
+                    json!({
+                        "phase": phase,
+                        "phase_code": code,
+                        "call_active": state.voice_speaker.load(Ordering::Relaxed),
+                        "talking": state.voice_talking.load(Ordering::Relaxed),
+                        "emotion": emotion.as_str(),
+                        "emotion_code": emotion.code(),
+                        "expression": state.voice_expression_seed.load(Ordering::Relaxed),
+                        "expression_amp": state.voice_expression_amp_milli.load(Ordering::Relaxed) as f64 / 1000.0,
+                        "expression_amp_max": bobo::EXPRESSION_AMP_MAX,
+                        "expression_offset_limit_rad": bobo::EXPRESSION_OFFSET_LIMIT,
+                        "wlan_mac": bobo::device_id(),
+                        "enabled": state.bobo_refusal.is_none(),
+                        "refusal": state.bobo_refusal.clone(),
+                        "keywords": keywords,
+                        "presets": presets,
+                    }),
+                );
+            }
             let bytes = raw_codec::record(
                 4,
                 &Slow {
                     health: state.health(),
-                    system: crate::telemetry_system::snapshot(),
+                    system,
                     capabilities: capabilities(&state),
                     calibration: calibration.as_deref(),
                 },

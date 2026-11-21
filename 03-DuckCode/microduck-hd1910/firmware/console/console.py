@@ -179,7 +179,8 @@ def handler_for(store, config, controller=None, service_controller=None, connect
                 return self.reply({"error": "控制请求须使用 JSON"}, 400)
             try:
                 size = int(self.headers.get("Content-Length", "0"))
-                if not 0 < size <= 4096: return self.reply({"error": "控制请求长度无效"}, 400)
+                # BoBo keyword tables need more room than pad/joint one-shots.
+                if not 0 < size <= 16384: return self.reply({"error": "控制请求长度无效"}, 400)
                 self.connection.settimeout(2)
                 payload = json.loads(self.rfile.read(size))
             except (ValueError, OSError):

@@ -75,7 +75,7 @@ class ActionFilterContractTests(unittest.TestCase):
 
     def test_task_scales_and_profiles_do_not_change_unrelated_runtime_branches(self):
         keys={'walk':'action_scale','stand':'action_scale','joint':'action_scale',
-              'ground_pick':'ground_pick_action_scale','roulade':None,
+              'ground_pick':'ground_pick_action_scale','splits':'ground_pick_action_scale','roulade':None,
               'kick_right':None,'kick_left':None,'kick_flourish':None,
               'roller':'action_scale','crouch':'ground_pick_action_scale','sitstand':None,
               'swizzle':'action_scale','slope':'action_scale',

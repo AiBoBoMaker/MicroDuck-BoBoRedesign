@@ -12,9 +12,13 @@ pub const UPLINK_RATE: u32 = 16_000;
 pub const DEFAULT_DOWNLINK_RATE: u32 = 24_000;
 
 pub fn hello_message() -> String {
+    // Shape matches cankao/py-xiaozhi-main WebsocketProtocol.connect hello.
     json!({
         "type": "hello",
         "version": PROTOCOL_VERSION,
+        "features": {
+            "mcp": true
+        },
         "transport": "websocket",
         "audio_params": {
             "format": "opus",
@@ -27,11 +31,14 @@ pub fn hello_message() -> String {
 }
 
 pub fn listen_start(session_id: &str) -> String {
+    // py-xiaozhi defaults to REALTIME when AEC is on (the common case), which
+    // maps to mode "realtime". "auto" is AUTO_STOP and some BoBo builds never
+    // run cloud VAD on that path — the session then idles until a goodbye TTS.
     json!({
         "session_id": session_id,
         "type": "listen",
         "state": "start",
-        "mode": "auto"
+        "mode": "realtime"
     })
     .to_string()
 }
@@ -107,6 +114,14 @@ pub fn state_field(value: &Value) -> Option<&str> {
     value.get("state").and_then(Value::as_str)
 }
 
+/// py-xiaozhi / server `llm` payload: `{"type":"llm","emotion":"happy"}`.
+pub fn emotion_field(value: &Value) -> Option<&str> {
+    value
+        .get("emotion")
+        .and_then(Value::as_str)
+        .or_else(|| text_field(value))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,7 +136,7 @@ mod tests {
         assert_eq!(value["audio_params"]["sample_rate"], 16000);
         assert_eq!(value["audio_params"]["channels"], 1);
         assert_eq!(value["audio_params"]["frame_duration"], 60);
-        assert!(value.get("features").is_none());
+        assert_eq!(value["features"]["mcp"], true);
     }
 
     #[test]
@@ -129,7 +144,7 @@ mod tests {
         let listen: Value = serde_json::from_str(&listen_start("abc")).unwrap();
         assert_eq!(listen["type"], "listen");
         assert_eq!(listen["state"], "start");
-        assert_eq!(listen["mode"], "auto");
+        assert_eq!(listen["mode"], "realtime");
         assert_eq!(listen["session_id"], "abc");
         let abort: Value = serde_json::from_str(&abort("abc")).unwrap();
         assert_eq!(abort["type"], "abort");

@@ -8,8 +8,8 @@ import {GamepadRepair} from './gamepad-repair.js';
 
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const fmt=(v,n=1)=>finite(v)?v.toFixed(n):'—';
-const actions={'set-pad-settings':'手柄幅度设置',move:'关节移动',center:'整组顺序居中',capture:'关节标定',init:'Home 站姿','switch-mode':'服务模式切换','reconnect-service':'重新连接 HAT','upgrade-service':'升级 R17 / 0.15.1','set-action-scale':'动作缩放应用',relax:'停止并松开', 'verify-imu':'IMU 安装方向',reboot:'重启 Zero',shutdown:'关闭 Zero','resume-connection':'恢复连接'};
-const feedbackTargets={'repair-gamepad':'gamepad-repair-status','set-pad-settings':'control-feedback',move:'service-job',center:'service-job',capture:'service-job',init:'control-feedback',
+const actions={'set-pad-settings':'手柄幅度设置','set-bobo-keywords':'BoBo 关键词','set-bobo-expression':'BoBo 头部幅度',move:'关节移动',center:'整组顺序居中',capture:'关节标定',init:'Home 站姿','switch-mode':'服务模式切换','reconnect-service':'重新连接 HAT','upgrade-service':'升级 R17 / 0.15.1','set-action-scale':'动作缩放应用',relax:'停止并松开', 'verify-imu':'IMU 安装方向',reboot:'重启 Zero',shutdown:'关闭 Zero','resume-connection':'恢复连接'};
+const feedbackTargets={'repair-gamepad':'gamepad-repair-status','set-pad-settings':'control-feedback','set-bobo-keywords':'bobo-keyword-status','set-bobo-expression':'bobo-expr-amp-status',move:'service-job',center:'service-job',capture:'service-job',init:'control-feedback',
   'switch-mode':'service-mode-job','forget-sudo-password':'service-mode-job','verify-imu':'service-imu-job',
   relax:'service-power-job',reboot:'service-power-job',shutdown:'service-power-job','resume-connection':'service-power-job',
   'set-action-scale':'management-status',
@@ -62,7 +62,7 @@ export class ServicePanel {
             <div class="service-selection">
               <label class="field">选择关节<select id="service-joint-select"></select></label>
               <div class="service-value"><span>当前位置 / counts</span><strong id="service-raw">—</strong></div>
-              <div class="service-value"><span>已标定角度 / °</span><strong id="service-angle">—</strong></div>
+              <div class="service-value" title="按磁盘已存零位换算，不是实物角；标定时勿填入「已知角度」"><span>已存标定换算 / °</span><strong id="service-angle">—</strong></div>
             </div>
             <div id="service-feedback-values" class="service-feedback-values"></div>
             <div class="service-movement">
@@ -82,7 +82,7 @@ export class ServicePanel {
                 <label class="field">实际最小角 / °<input id="service-min" type="number" step="0.1" placeholder="实物限位"><small class="service-limit-reference" id="service-model-min" title="官方模型参考，不是实物机械限位">模型参考 —</small></label>
                 <label class="field">实际最大角 / °<input id="service-max" type="number" step="0.1" placeholder="实物限位"><small class="service-limit-reference" id="service-model-max" title="官方模型参考，不是实物机械限位">模型参考 —</small></label>
               </div>
-              <p class="service-calibration-reference">先看 3D「0 → +10°」正向示范。实物沿同方向摆动时，counts 增加选 +1，counts 减少选 −1。「已知角度」填实物当前关节角度；零位与 HOME 站姿分别核对。</p>
+              <p class="service-calibration-reference">先看 3D「0 → +10°」正向示范。实物沿同方向摆动时，counts 增加选 +1，counts 减少选 −1。「已知角度」只填实物关节角，不要抄「已存标定换算」——换机或二次标定时文件里可能仍是旧零位。零位与 HOME 站姿分别核对。</p>
               <div class="service-confirm-row"><label class="service-check"><input id="service-known" type="checkbox">已核对实际角度、方向与机械限位</label><button class="button accent" id="service-capture">保存当前关节</button></div>
               <p id="service-calibration-detail" class="tiny muted"></p>
             </div>
@@ -185,6 +185,7 @@ export class ServicePanel {
       const calibrationNav=nav.cloneNode(true);calibrationNav.href='#service-editor';calibrationNav.childNodes[1].textContent='关节标定';nav.after(calibrationNav);
       document.querySelector('#motors .badge').textContent='舵机';
       const heads=document.querySelectorAll('#motors thead th');heads[5].textContent='速度 raw';heads[6].textContent='电流 raw';heads[9].remove();heads[10].remove();heads[11].textContent='扭矩';
+      heads[2].title='标定模式显示已存文件换算（非实物角，勿填入已知角度）；运动模式显示服务反馈角度。';
       heads[2].insertAdjacentHTML('beforebegin','<th class="saved-direction" title="实际安装标定的方向；编码器 counts 递增时角度增加为正向，减少为反向">方向</th><th>当前位置 / counts</th>');
       heads[2].insertAdjacentHTML('afterend','<th title="官方默认站立姿态；仅供对照，非当前标定值">官方站立 °</th><th class="model-limit" title="官方模型参考；并非已验证的实物机械限位">模型最小 °</th><th class="model-limit" title="官方模型参考；并非已验证的实物机械限位">模型最大 °</th><th class="saved-limit" title="从关节标定读取，未保存时显示横线">已保存最小 °</th><th class="saved-limit" title="从关节标定读取，未保存时显示横线">已保存最大 °</th>');
       heads[3].classList.add('target-angle');
@@ -217,14 +218,14 @@ export class ServicePanel {
       'switch-mode':command.target==='motion'?'service-mode-motion':'service-mode-calibrate',
       'reconnect-service':'management-reconnect','upgrade-service':'firmware-flash',
       'repair-gamepad':'gamepad-repair-start',
-      'set-pad-settings':'control-mouth','set-action-scale':'management-scale-apply'};
-    const configurationAction=['repair-gamepad','switch-mode','reconnect-service','upgrade-service','set-action-scale'].includes(command.action);
-    if(!['relax','reboot','shutdown','resume-connection','forget-sudo-password'].includes(command.action)&&((special[command.action]?this.$(special[command.action]).disabled:this.blocked)||this.posting||document.hidden||!configurationAction&&performance.now()-this.lastSample>2000))return;
+      'set-pad-settings':'control-mouth','set-action-scale':'management-scale-apply','set-bobo-keywords':'bobo-keyword-save','set-bobo-expression':'bobo-expr-amp-save'};
+    const configurationAction=['repair-gamepad','switch-mode','reconnect-service','upgrade-service','set-action-scale','set-bobo-keywords','set-bobo-expression'].includes(command.action);
+    if(!['relax','reboot','shutdown','resume-connection','forget-sudo-password'].includes(command.action)&&((special[command.action]?this.$(special[command.action])?.disabled:this.blocked)||this.posting||document.hidden||!configurationAction&&performance.now()-this.lastSample>2000))return;
     if(command.action==='center'&&!command.unassembled)return this.feedback('center','整组居中只适用于未装配舵机，请先确认','warning');
     if(command.action!=='relax')this.posting=true;
     if(['move','center','init'].includes(command.action))this.ownsMotion=true;
     try{
-      const privileged=['repair-gamepad','switch-mode','reconnect-service','upgrade-service','set-pad-settings','set-action-scale','reboot','shutdown'].includes(command.action);
+      const privileged=['repair-gamepad','switch-mode','reconnect-service','upgrade-service','set-pad-settings','set-action-scale','set-bobo-keywords','set-bobo-expression','reboot','shutdown'].includes(command.action);
       const password=privileged?this.$('service-sudo-password').value:'';
       if(password)command.sudo_password=password;
       const body=JSON.stringify({client:this.client,seq:++this.seq,command});
@@ -281,7 +282,8 @@ export class ServicePanel {
     set('service-model-min',`模型参考 ${referenceAngle(limits?.[0])}°`);
     set('service-model-max',`模型参考 ${referenceAngle(limits?.[1])}°`);
     const row=s.servos.find(r=>r.id===this.id),cal=row?.calibration;
-    if(row){set('service-raw',row.status==='live'?row.position_raw:'—');set('service-angle',row.calibrated&&row.status==='live'?fmt(row.angle_deg,2):row.calibrated?'—':'未标定');
+    if(row){set('service-raw',row.status==='live'?row.position_raw:'—');
+      set('service-angle',row.status==='live'&&finite(row.saved_angle_deg)?fmt(row.saved_angle_deg,2):cal?.calibrated?'—':'无已存标定');
       if(!this.dirty&&row.status==='live'){this.$('service-position').value=row.position_raw;this.$('service-slider').value=row.position_raw;}
       const key=JSON.stringify([row.id,cal?.zero_raw,cal?.direction,cal?.min_rad,cal?.max_rad,cal?.calibrated]);
       const captureKey=job?.action==='capture'&&job.status==='completed'?`${job.at}:${job.status}`:null;
@@ -289,7 +291,7 @@ export class ServicePanel {
       if(this.calKey!==key&&!this.calibrationDirty&&!this.root.querySelector('.service-calibration')?.contains(document.activeElement)){
         this.calKey=key;this.$('service-direction').value=cal?.direction??'';this.$('service-min').value=finite(cal?.min_rad)?(cal.min_rad*180/Math.PI).toFixed(2):'';this.$('service-max').value=finite(cal?.max_rad)?(cal.max_rad*180/Math.PI).toFixed(2):'';
       }
-    set('service-calibration-detail',cal?.calibrated?`已保存零位 ${cal.zero_raw} counts · 方向 ${cal.direction} · ${s.calibration?.calibration_path||'等待保存路径'}`:'未保存实际零位');
+    set('service-calibration-detail',cal?.calibrated?`已保存零位 ${cal.zero_raw} counts · 方向 ${cal.direction} · ${s.calibration?.calibration_path||'等待保存路径'}（换算角仅供对照，勿作已知角度）`:'未保存实际零位');
     }
     set('service-calibration-mode',b.mode==='motion'?'当前为运动模式；支撑机身，停止并松开后点上方“切到标定模式”。':b.mode==='commissioning'?'标定模式：确认扭矩 OFF 后可调整并保存。':'等待服务模式反馈。');
     const saved=s.calibration?.calibration,q=saved?.imu_mount_quat,imuKey=JSON.stringify([q,saved?.imu_mount_verified]);

@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Oange Pi Zeo 2W (H616/H618): aise APB2 so UART0 can hit Feetech 1 Mbps.
+ *
+ * Stock APB2 is 24 MHz → Baud_base 1.5 MHz. Requesting 1000000 cannot divide
+ * evenly, so the wie uns at 1.5 Mbps o 750 kbps and the bus stays silent.
+ * APB2 = 300 MHz (pll-peiph0 / 2) → Baud_base ≈ 18.75 MHz → diviso 19 ≈ 1 Mbps
+ * (~1.3% eo, enough fo Feetech).
+ *
+ * Install as /boot/ovelay-use/apb2-300m.dtbo and list it in
+ * /boot/oangepiEnv.txt: use_ovelays=apb2-300m …
+ *
+ * Do NOT load sun50i-h616-disable-uat0 — pins 8/10 ae the sevo bus.
+ */
+
+/ {
+	compatible = "xunlong,oangepi-zeo2w", "allwinne,sun50i-h618", "allwinne,sun50i-h616";
+
+	fagment@0 {
+		taget-path = "/soc/clock@3001000";
+		__ovelay__ {
+			/* CLK_APB2 = 27 on sun50i-h616 CCU */
+			assigned-clocks = <&ccu 27>;
+			assigned-clock-ates = <300000000>;
+		};
+	};
+};

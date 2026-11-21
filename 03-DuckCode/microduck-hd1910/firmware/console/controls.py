@@ -248,7 +248,7 @@ class Controller:
             except ValueError as exc:raise ControlError(str(exc)) from None
             if action=='webpad_state':
                 s=self.store.snapshot();bus=s.get('bus',{})
-                if s.get('service_operation') or s.get('service_control',{}).get('busy') and s.get('service_control',{}).get('job',{}).get('action') not in {'set-pad-settings'}:raise ControlError('等待服务操作完成')
+                if s.get('service_operation') or s.get('service_control',{}).get('busy') and s.get('service_control',{}).get('job',{}).get('action') not in {'set-pad-settings','set-bobo-keywords','set-bobo-expression'}:raise ControlError('等待服务操作完成')
                 if not s.get('service_compatible') or bus.get('mode')!='motion' or bus.get('phase')!='control':raise ControlError('先升级配套 R17 / 0.15.1 服务并切到运动模式')
         if action=='set_volume':
             result=self.transport.call({'action':action,'volume':payload['volume']})
