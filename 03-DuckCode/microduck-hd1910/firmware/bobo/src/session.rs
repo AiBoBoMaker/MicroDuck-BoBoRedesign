@@ -21,6 +21,15 @@ use crate::protocol::{self, authorization_value};
 const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// How long the sound card hand-off may take before the call carries on without it.
+///
+/// `systemctl` is a blocking D-Bus round-trip, and on this board the audio units can sit in a
+/// stop/start job for tens of seconds: an `arecord` that ignores SIGTERM, or a start queued
+/// behind a stale stop. That must never hold the runtime that serves `/run/robotd.sock` — the
+/// pad times out after three seconds and the whole robot looks dead. Ten seconds clears the
+/// 3 s + 2 s the stop path itself budgets, and is bounded so the call still ends.
+const SYSTEMCTL_TIMEOUT: Duration = Duration::from_secs(10);
+
 pub struct SessionConfig {
     pub enabled: bool,
     pub url: String,
@@ -79,7 +88,10 @@ pub async fn run(
         // and our arecord|sox pipeline own the card (FIFO stayed peak=1 otherwise).
         let opi = uses_opi_pipeline(&cfg.capture_device);
         if opi {
-            systemctl_duckmix("stop");
+            systemctl_duckmix("stop").await;
+            // The call's own speaker level, set before the first `aplay` rather than only after
+            // hang-up: the boot script still leaves the codec at full scale.
+            crate::audio::set_opi_playback_volume().await;
         }
         let mut audio = Audio::start(
             cfg.capture_device.clone(),
@@ -106,8 +118,8 @@ pub async fn run(
         // and the exclusive codec stays wedged for the rest of the boot.
         audio.shutdown().await;
         if opi {
-            crate::audio::restore_opi_codec_after_call();
-            systemctl_duckmix("start");
+            crate::audio::restore_opi_codec_after_call().await;
+            systemctl_duckmix("start").await;
             // Let duckmix's arecord settle before robotd chirps share the card.
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
@@ -125,8 +137,27 @@ fn uses_opi_pipeline(capture_device: &str) -> bool {
     d == "duckmix_cap" || d == "opi_aic3104"
 }
 
-fn systemctl_duckmix(action: &str) {
+/// Stop or start `duckmix-capture` without stalling the async runtime.
+///
+/// The work itself blocks on purpose — it waits on systemd — so it runs on the blocking pool
+/// and is bounded here. A hand-off that overruns carries on in the background; the call moves
+/// on either way, which is what keeps `/run/robotd.sock` answering while the card changes hands.
+async fn systemctl_duckmix(action: &'static str) {
     tracing::warn!(%action, "通话切换 duckmix-capture");
+    let hand_off = tokio::task::spawn_blocking(move || systemctl_duckmix_blocking(action));
+    match timeout(SYSTEMCTL_TIMEOUT, hand_off).await {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => tracing::warn!(%action, %error, "duckmix 切换线程失败"),
+        Err(_) => tracing::warn!(
+            %action,
+            timeout_s = SYSTEMCTL_TIMEOUT.as_secs(),
+            "duckmix 切换超时，语音流程继续"
+        ),
+    }
+}
+
+/// The blocking half: every step here may wait on systemd, so it never runs on the runtime.
+fn systemctl_duckmix_blocking(action: &'static str) {
     // FIFO writers can block forever on stop. Restart=always means a bare
     // SIGKILL only respawns duckmix 2s later and steals the card again (peak=1).
     if action == "stop" {

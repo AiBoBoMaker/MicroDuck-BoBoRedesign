@@ -168,13 +168,51 @@ impl Audio {
     }
 }
 
+/// Speaker level for the OPi codec, on the 0..=127 DAC scale the console uses: 75 ≈ 5 %,
+/// about −26 dB. **Temporary** — the voice path used to force full scale (127).
+#[cfg(target_os = "linux")]
+const OPI_PLAYBACK_VOLUME: &str = "75,75";
+
+/// Set the speaker level on its own.
+///
+/// Called as a call starts — so the first call after boot is already at this level instead of
+/// whatever the boot script left — and again from [`restore_opi_codec_after_call`]. Blocking
+/// `amixer` on the blocking pool for the same reason as the restore below.
+#[cfg(target_os = "linux")]
+pub async fn set_opi_playback_volume() {
+    match tokio::task::spawn_blocking(|| {
+        amixer_quiet(&["-c", "aic3104", "cset", "name=PCM Playback Volume", OPI_PLAYBACK_VOLUME]);
+        amixer_quiet(&["-c", "aic3104", "cset", "name=Line Playback Switch", "on,on"]);
+    })
+    .await
+    {
+        Ok(()) => {}
+        Err(error) => tracing::warn!(%error, "设置喇叭音量的线程失败"),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub async fn set_opi_playback_volume() {}
+
 /// After a voice call, put AHUB + AIC3104 back so robotd chirps/wheee and duckmix work again.
 /// TTS recover cycles can leave the crossbar at NONE; duckmix restart alone is not enough
 /// if it races the still-held card.
+///
+/// Async because every step is a blocking `amixer` spawn, and this runs on robotd's runtime:
+/// a card that will not answer must not take the IPC socket down with it. The work itself runs
+/// on the blocking pool.
 #[cfg(target_os = "linux")]
-pub fn restore_opi_codec_after_call() {
+pub async fn restore_opi_codec_after_call() {
+    match tokio::task::spawn_blocking(restore_opi_codec_blocking).await {
+        Ok(()) => {}
+        Err(error) => tracing::warn!(%error, "恢复声卡路由的线程失败"),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn restore_opi_codec_blocking() {
     // Playback path (matches deploy/audio/aic3104-init.sh).
-    amixer_quiet(&["-c", "aic3104", "cset", "name=PCM Playback Volume", "127,127"]);
+    amixer_quiet(&["-c", "aic3104", "cset", "name=PCM Playback Volume", OPI_PLAYBACK_VOLUME]);
     amixer_quiet(&["-c", "aic3104", "cset", "name=Line DAC Playback Volume", "118,118"]);
     amixer_quiet(&["-c", "aic3104", "cset", "name=Line Playback Switch", "on,on"]);
     amixer_quiet(&["-c", "aic3104", "cset", "name=Line Playback Volume", "9,9"]);
@@ -188,7 +226,7 @@ pub fn restore_opi_codec_after_call() {
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn restore_opi_codec_after_call() {}
+pub async fn restore_opi_codec_after_call() {}
 
 /// Two 70 ms tones at 1.2 kHz with a 50 ms gap, 16 kHz mono S16.
 fn ready_beep_pcm() -> Vec<u8> {

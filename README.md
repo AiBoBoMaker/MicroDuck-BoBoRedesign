@@ -111,6 +111,8 @@ MicroDuck-BoBoRedesign/
 - 说话时按 `llm.emotion` 做稀疏头部动作；中控可调幅度（0–200%，单轴硬限位 ±0.18 rad）。
 - 关键词表可在中控编辑，热更新到 `/var/lib/robot/bobo-keywords.json`（无需重启 `robotd`）。
 - Orange Pi 音频走 AIC3104 + duckmix；通话结束会恢复声卡，避免 LT/RT 叫声失效。
+- 通话起/挂断时的 `systemctl`、`amixer` 已移到阻塞线程池并设 10 秒上限，不再卡住 `/run/robotd.sock`：此前 duckmix 启停一慢，`padd` 就会 3 秒超时退出，表现为「按过 R3 后手柄按键全部失灵、再按也不能恢复」。
+- 喇叭输出**临时**改为 5%（DAC `PCM Playback Volume = 75/127`，约 −26 dB），通话开始前与挂断后都会应用；开机提示音与通话外的叫声仍由 `aic3104-init.sh` 设为满音量。恢复原音量改 `firmware/bobo/src/audio.rs` 的 `OPI_PLAYBACK_VOLUME`（改回 `"127,127"`）。
 
 **R18 干净板安装：**
 
